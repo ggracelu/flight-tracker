@@ -2,22 +2,22 @@
 
 ## Overview
 
-Phase 2 uses Supabase as the real system foundation for:
+Phases 2 and 3 use Supabase as the real system foundation for:
 
 - database storage for shared flight telemetry
 - authentication for user accounts
 - row-level security for personalization
-- realtime broadcasting from the `flights` table in later phases
+- realtime broadcasting from the `flights` and `worker_status` tables in Phase 3
 
 ## Schema
 
 ### `flights`
 
-Shared telemetry table intended for future OpenSky ingestion.
+Shared telemetry table used by the Phase 3 OpenSky ingestion worker.
 
 Important fields:
 
-- `icao24` unique aircraft identifier from OpenSky
+- `icao24` unique aircraft identifier from OpenSky and the Phase 3 upsert key
 - `callsign` flight callsign when available
 - `origin_country` aircraft origin country
 - `longitude` and `latitude` current position
@@ -38,7 +38,7 @@ Constraints:
 
 ### `worker_status`
 
-Reserved for the future Railway worker heartbeat and simple operational metadata.
+Stores the Phase 3 worker heartbeat and simple operational metadata.
 
 ## Auth Model
 
@@ -50,18 +50,20 @@ Reserved for the future Railway worker heartbeat and simple operational metadata
 
 ## Realtime Role
 
-The `flights` table is the shared public feed. In later phases:
+The `flights` table is the shared public feed. In Phase 3:
 
-- the worker will upsert telemetry into `flights`
-- Supabase Realtime can stream changes to the frontend
-- users will filter the shared stream by region and preferences
+- the worker upserts telemetry into `flights`
+- Supabase Realtime streams changes to the frontend
+- users can filter the shared stream by saved regions
 
-Phase 2 does not yet enable the ingestion worker or live map UI.
+Phase 3 still does not add the live map UI.
 
 ## Manual Supabase Setup
 
 1. Create a new Supabase project.
-2. In Supabase SQL Editor, run the migration from `supabase/migrations/20260421_phase2_foundation.sql`.
+2. In Supabase SQL Editor, run migrations in order:
+   - `supabase/migrations/20260421_phase2_foundation.sql`
+   - `supabase/migrations/20260421_phase3_live_loop.sql`
 3. In `Authentication -> Providers`, keep email/password enabled.
 4. In `Authentication -> URL Configuration`, add your local development URL, typically `http://localhost:3000`.
 5. In `Project Settings -> API`, copy:
@@ -69,14 +71,14 @@ Phase 2 does not yet enable the ingestion worker or live map UI.
    - `anon public` key
 6. Put those values into `apps/web/.env.local`.
 7. For later phases, keep the service role key private for `apps/worker` only.
-8. In `Database -> Replication`, ensure the `flights` table is available for Realtime when you reach Phase 3.
+8. In `Database -> Replication`, ensure both `flights` and `worker_status` are available for Realtime.
 
-## Phase 3 Preview
+## Phase 3 Summary
 
-Phase 3 will implement:
+Phase 3 implements:
 
 - `apps/worker` telemetry polling from OpenSky
 - upsert logic into `flights`
 - `worker_status` heartbeat writes
-- frontend subscription to shared telemetry updates
+- frontend subscription to shared telemetry and heartbeat updates
 - richer flight list or regional live views before the map phase

@@ -1,36 +1,59 @@
 # CLAUDE.md
 
-## Project Intent
+## Project
+**Flight Tracker** — a multi-service realtime system for monitoring live aircraft positions worldwide using OpenSky Network data, with region-based personalization and a frontend that updates without page refresh.
 
-This repository is the rebuilt Assignment 4 codebase for Design, Build, Ship. The work should continue from the restored Phase 1 baseline, not from any lost later-phase implementation.
+This project follows the Week 4 course architecture exactly:
 
-## Locked Architecture
+**OpenSky Network -> Background Worker (Railway) -> Supabase (Postgres + Auth + Realtime) -> Next.js Frontend (Vercel)**
 
-Follow this architecture exactly:
+The browser must **not** call OpenSky directly.  
+The frontend must read from Supabase and subscribe to Realtime updates.  
+The worker is the only service that fetches external flight data.
 
-`OpenSky Network -> Background Worker (Railway later) -> Supabase (database + Realtime + Auth) -> Next.js frontend (Vercel later)`
+---
 
-Constraints:
+## Assignment Goal
+Build and deploy a working multi-service system where:
 
-- Do not move ingestion into the frontend.
-- Do not replace Supabase with local JSON persistence.
-- Do not build a Python CLI.
-- Do not drift into deployment work during Phase 2.
+- a background worker polls a live or frequently updated data source,
+- the worker writes normalized records into Supabase,
+- the frontend reads from Supabase,
+- the frontend updates live through Supabase Realtime,
+- users can sign in and personalize what they see,
+- the deployed app works for classmates end to end.
 
-## Phase 2 Scope
+---
 
-Phase 2 is limited to:
+## Core Product Idea
+Users can:
 
-- Supabase schema and migrations
-- auth and RLS foundation
-- realtime-ready `flights` table foundation
-- frontend auth scaffold
-- frontend personalization scaffold using `user_regions`
-- documentation and environment setup
+- view live flights,
+- filter flights by region,
+- save preferred regions,
+- watch flight data update in realtime,
+- eventually view flights on a live map.
 
-## Not In Scope Yet
+Primary data source:
+- **OpenSky Network** for aircraft state vectors
 
-- OpenSky polling worker implementation
-- live aircraft map
-- deployment to Railway or Vercel
-- production hardening beyond the assignment baseline
+Primary personalization concept:
+- **user-selected regions** (for example: global, north-america, europe, asia)
+
+---
+
+## Repository Structure
+Expected monorepo structure:
+
+```text
+.
+├── CLAUDE.md
+├── README.md
+├── package.json
+├── docs/
+├── supabase/
+│   └── migrations/
+├── apps/
+│   ├── web/        # Next.js frontend -> Vercel
+│   └── worker/     # Node/TypeScript worker -> Railway
+```
