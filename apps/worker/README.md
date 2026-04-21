@@ -1,6 +1,6 @@
 # Worker
 
-`apps/worker` is the Phase 3 polling service for the assignment architecture:
+`apps/worker` is the polling service for the assignment architecture:
 
 `OpenSky Network -> apps/worker -> Supabase`
 
@@ -58,7 +58,7 @@ Maintains a single row for `worker_name = 'opensky-worker'` containing:
 - `last_heartbeat_at`
 - JSON `details` including cycle counts, fetched rows, upsert counts, poll interval, and last error
 
-## Phase 3 Region Strategy
+## Region Strategy
 
 The worker assigns one of:
 
@@ -67,10 +67,34 @@ The worker assigns one of:
 - `europe`
 - `asia`
 
-If coordinates are missing or outside the simple Phase 3 bounding boxes, the fallback is `global`.
+If coordinates are missing or outside the simple bounding boxes, the fallback is `global`.
+
+## Railway Deployment
+
+- root directory: `apps/worker`
+- install command: `npm install`
+- build command: `npm install && npm run build`
+- start command: `npm run start`
+
+### Required Railway Env Vars
+
+- `SUPABASE_URL`
+- `SUPABASE_SERVICE_ROLE_KEY`
+- `POLL_INTERVAL_MS`
+
+### Optional Railway Env Vars
+
+- `OPENSKY_USERNAME`
+- `OPENSKY_PASSWORD`
+
+### Railway Notes
+
+- The worker logs one line per cycle plus clear failure lines, which is enough for Railway log inspection.
+- Use a persistent service, not a one-off job.
+- After deploy, confirm that `public.worker_status.last_heartbeat_at` is updating and `public.flights` is receiving fresh rows.
 
 ## Known Limitations
 
-- Phase 3 uses a coarse coordinate bucket strategy, not a true aviation geo model.
+- The project still uses a coarse coordinate bucket strategy, not a true aviation geo model.
 - OpenSky response volume and availability depend on upstream rate limits.
-- Stale flights are not pruned yet; Phase 4 can add richer retention behavior if needed.
+- Stale flight pruning is still intentionally out of scope for this phase.

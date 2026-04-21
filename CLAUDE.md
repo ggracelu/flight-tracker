@@ -29,10 +29,11 @@ Build and deploy a working multi-service system where:
 Users can:
 
 - view live flights,
+- view the same live flights on a realtime map,
 - filter flights by region,
 - save preferred regions,
 - watch flight data update in realtime,
-- eventually view flights on a live map.
+- compare the synced list and map views in one dashboard.
 
 Primary data source:
 - **OpenSky Network** for aircraft state vectors
@@ -57,3 +58,13 @@ Expected monorepo structure:
 │   ├── web/        # Next.js frontend -> Vercel
 │   └── worker/     # Node/TypeScript worker -> Railway
 ```
+
+## Current Phase 4 Expectations
+
+- keep the ingestion path exactly as `OpenSky -> worker -> Supabase -> Next.js`
+- do not move OpenSky fetching into the browser
+- keep `public.flights` and `public.worker_status` as the operational data source for the UI
+- logged-out users see the public global feed
+- logged-in users see results filtered by `user_regions`
+- map and list must stay aligned to the same filtered dataset
+- deployment docs must cover Railway and Vercel setup clearly
