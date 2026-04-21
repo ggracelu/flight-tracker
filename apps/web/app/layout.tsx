@@ -3,7 +3,7 @@ import './globals.css';
 
 export const metadata: Metadata = {
   title: 'Flight Tracker',
-  description: 'Supabase-backed flight tracking foundation with auth and saved regions.'
+  description: 'A live flight tracker with a public worldwide feed, saved regions, and a synced map and flight list.'
 };
 
 export default function RootLayout({

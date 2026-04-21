@@ -1,62 +1,118 @@
 # Flight Tracker
 
-Flight Tracker is being built as a phased monorepo for monitoring live aircraft positions worldwide. Phase 2 establishes the Supabase database, auth, and realtime-ready foundation while preserving the existing `apps/web` Next.js scaffold.
+Flight Tracker is a live flight browsing app built on the required multi-service course architecture. It keeps the existing worker-to-database-to-web pipeline intact while presenting the data as a polished user-facing product.
 
-## Architecture
+`OpenSky Network -> Background Worker (Railway) -> Supabase (database + Realtime + Auth) -> Next.js frontend (Vercel)`
 
-The project architecture for this assignment is fixed:
+The browser does not fetch OpenSky directly. `apps/worker` is still the only service that polls upstream data.
 
-`OpenSky Network -> Background Worker (Railway later) -> Supabase (database + Realtime + Auth) -> Next.js frontend (Vercel later)`
+## Product Summary
 
-Phase 2 intentionally stops at the Supabase and frontend foundation:
+- browse a public worldwide live flight feed without signing in
+- explore the same flights on a synced map and flight list
+- sign in to save preferred regions for a personalized view
+- keep live updates flowing through Supabase Realtime
+- deploy the worker on Railway and the frontend on Vercel without changing the architecture
 
-- `apps/web` contains the Next.js user interface and Supabase auth/personalization scaffold.
-- `apps/worker` is a placeholder for the future Railway worker that will ingest OpenSky data.
-- `supabase/migrations` contains the SQL schema and Row Level Security policies.
-- `docs/` contains setup notes and phase-specific documentation.
+## Repo Structure
 
-## Phase 2 Deliverables
+- `apps/web`: Next.js frontend for Vercel
+- `apps/worker`: Node/TypeScript polling worker for Railway
+- `supabase/migrations`: schema and Phase 2/3 database changes
+- `docs/`: setup, verification, deployment, and submission notes
 
-- Supabase schema for `flights`, `user_regions`, and `worker_status`
-- RLS policies aligned to public telemetry plus user-owned personalization
-- Next.js auth scaffold for sign up, sign in, sign out
-- "My Regions" personalization UI backed by Supabase
-- Environment templates and manual setup documentation
+## Current UX
+
+- immediate signed-out browsing on the public global feed
+- saved regions that personalize the map and flight list for signed-in users
+- a selected-flight details panel tied to both the map and the list
+- friendlier empty, loading, degraded-realtime, and auth messages
+- clean presentation with operational details kept in the background
 
 ## Local Development
 
-1. Install dependencies:
+1. Install dependencies.
 
 ```bash
 npm install
 ```
 
-2. Copy the frontend environment file:
+2. Copy local environment files.
 
 ```bash
 cp apps/web/.env.local.example apps/web/.env.local
+cp apps/worker/.env.example apps/worker/.env
 ```
 
-3. Fill in `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_ANON_KEY` from your Supabase project.
+3. Fill in the frontend env vars in `apps/web/.env.local`.
 
-4. Run the app:
+- `NEXT_PUBLIC_SUPABASE_URL`
+- `NEXT_PUBLIC_SUPABASE_ANON_KEY`
+
+4. Fill in the worker env vars in `apps/worker/.env`.
+
+- `SUPABASE_URL`
+- `SUPABASE_SERVICE_ROLE_KEY`
+- `POLL_INTERVAL_MS`
+- `OPENSKY_CLIENT_ID` optional
+- `OPENSKY_CLIENT_SECRET` optional
+
+5. Start the frontend.
 
 ```bash
 npm run dev:web
 ```
 
-5. Open `http://localhost:3000`.
+6. Start the worker in a second terminal.
 
-## Supabase Setup
+```bash
+npm run dev:worker
+```
 
-Manual setup is documented in [docs/supabase-phase2.md](/Users/gracelu/Desktop/flight-tracker/docs/supabase-phase2.md).
+7. Open `http://localhost:3000`.
 
-## What Comes In Phase 3
+## Verification Commands
 
-Phase 3 will add the actual background worker and telemetry ingestion pipeline:
+```bash
+npm run build:web
+npm run build:worker
+npm run lint:web
+```
 
-- OpenSky polling from `apps/worker`
-- writes into `flights`
-- worker heartbeat updates in `worker_status`
-- frontend live flight feed usage from Supabase Realtime
-- initial region-based telemetry views before the full live map phase
+## Deployment Docs
+
+- Supabase setup: [docs/supabase-phase2.md](/Users/gracelu/Desktop/flight-tracker/docs/supabase-phase2.md)
+- Phase 3 local verification: [docs/phase3-local-verification.md](/Users/gracelu/Desktop/flight-tracker/docs/phase3-local-verification.md)
+- Deployment guide: [docs/phase4-deployment.md](/Users/gracelu/Desktop/flight-tracker/docs/phase4-deployment.md)
+- Submission checklist: [docs/submission-checklist.md](/Users/gracelu/Desktop/flight-tracker/docs/submission-checklist.md)
+
+## Deployment Summary
+
+### `apps/worker` on Railway
+
+- root directory: `apps/worker`
+- build command: `npm install && npm run build`
+- start command: `npm run start`
+- required env vars:
+  - `SUPABASE_URL`
+  - `SUPABASE_SERVICE_ROLE_KEY`
+  - `POLL_INTERVAL_MS`
+- optional env vars:
+  - `OPENSKY_CLIENT_ID`
+  - `OPENSKY_CLIENT_SECRET`
+
+### `apps/web` on Vercel
+
+- project root: `apps/web`
+- framework preset: `Next.js`
+- build command: `npm run build`
+- install command: `npm install`
+- required env vars:
+  - `NEXT_PUBLIC_SUPABASE_URL`
+  - `NEXT_PUBLIC_SUPABASE_ANON_KEY`
+
+## Known Limits
+
+- Region assignment still uses the simple Phase 3 bounding-box strategy.
+- OpenSky availability and rate limits remain upstream constraints.
+- Realtime degradation falls back to the latest fetched data; it does not add polling in the browser.

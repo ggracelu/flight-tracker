@@ -1,4 +1,11 @@
 node_modules/
 apps/web/.next/
+apps/worker/dist/
 apps/web/.env.local
 .env.local
+
+apps/worker/.env
+apps/web/.env.local
+
+apps/worker/.env
+apps/web/.env.local

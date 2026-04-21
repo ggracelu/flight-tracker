@@ -4,11 +4,37 @@
 
 :root {
   color-scheme: light;
+  font-family:
+    "Avenir Next", Avenir, "Segoe UI", "Helvetica Neue", Helvetica, Arial, sans-serif;
   background:
-    radial-gradient(circle at top, rgba(34, 211, 238, 0.12), transparent 30%),
+    radial-gradient(circle at top, rgba(125, 211, 252, 0.18), transparent 28%),
+    radial-gradient(circle at 85% 12%, rgba(45, 212, 191, 0.12), transparent 24%),
     linear-gradient(180deg, #020617 0%, #0f172a 58%, #111827 100%);
 }
 
 body {
   @apply min-h-screen text-slate-100 antialiased;
+  background: transparent;
+}
+
+.leaflet-container {
+  height: 100%;
+  width: 100%;
+  background: #0f172a;
+  font-family: inherit;
+}
+
+.flight-map-marker {
+  background: transparent;
+  border: 0;
+}
+
+.flight-map-marker__dot {
+  display: block;
+  width: 18px;
+  height: 18px;
+  border-radius: 9999px;
+  border: 2px solid rgba(8, 47, 73, 0.9);
+  background: rgba(125, 211, 252, 0.95);
+  box-shadow: 0 0 0 4px rgba(125, 211, 252, 0.2);
 }
