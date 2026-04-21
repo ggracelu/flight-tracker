@@ -1,69 +1,72 @@
 # Flight Tracker
 
-Flight Tracker is being rebuilt as a phased monorepo for monitoring live aircraft positions worldwide. Phase 3 adds the first real live-data loop while preserving the existing assignment architecture and the restored Phase 2 foundation.
+Flight Tracker is a phased monorepo for MPCS 51238 Assignment 4. Phase 4 preserves the required architecture and adds a live map on top of the existing realtime flight feed.
 
-## Architecture
+`OpenSky Network -> Background Worker (Railway) -> Supabase (database + Realtime + Auth) -> Next.js frontend (Vercel)`
 
-The project architecture for this assignment is fixed:
+The browser does not fetch OpenSky directly. `apps/worker` is still the only service that polls upstream data.
 
-`OpenSky Network -> Background Worker (Railway later) -> Supabase (database + Realtime + Auth) -> Next.js frontend (Vercel later)`
+## Phase 4 Scope
 
-Phase 3 currently includes:
+- preserve the Phase 3 worker ingestion loop
+- preserve Supabase as the shared source of truth
+- render live flights on a map in `apps/web`
+- keep the map and flight list synchronized through Supabase Realtime
+- improve region filtering behavior for public and signed-in users
+- document Railway and Vercel deployment steps
+- add a concise submission-readiness checklist
 
-- `apps/web` with Supabase auth, saved regions, live flight queries, and Realtime subscriptions
-- `apps/worker` as the Node/TypeScript OpenSky polling service
-- `supabase/migrations` with schema, RLS, and the narrow Phase 3 upsert/index migration
-- `docs/` with setup and local verification notes
+## Repo Structure
 
-## Phase 3 Deliverables
+- `apps/web`: Next.js frontend for Vercel
+- `apps/worker`: Node/TypeScript polling worker for Railway
+- `supabase/migrations`: schema and Phase 2/3 database changes
+- `docs/`: setup, verification, deployment, and submission notes
 
-- OpenSky polling worker in `apps/worker`
-- normalized flight upserts into `public.flights`
-- worker heartbeat writes into `public.worker_status`
-- live dashboard list view in `apps/web`
-- Supabase Realtime subscriptions for `flights` and `worker_status`
-- basic region filtering using `user_regions`
-- updated scripts and verification documentation
+## Phase 4 Deliverables
+
+- live Leaflet map backed by the existing `public.flights` feed
+- synced map and list views using the same realtime data
+- worker heartbeat, freshness, and stale-data messaging in the dashboard
+- safer empty, loading, error, and missing-env states
+- Railway deployment guidance for the worker
+- Vercel deployment guidance for the frontend
 
 ## Local Development
 
-1. Install dependencies:
+1. Install dependencies.
 
 ```bash
 npm install
 ```
 
-2. Copy the frontend environment file:
+2. Copy local environment files.
 
 ```bash
 cp apps/web/.env.local.example apps/web/.env.local
-```
-
-3. Copy the worker environment file:
-
-```bash
 cp apps/worker/.env.example apps/worker/.env
 ```
 
-4. Fill in:
+3. Fill in the frontend env vars in `apps/web/.env.local`.
 
-- `apps/web/.env.local`
-  - `NEXT_PUBLIC_SUPABASE_URL`
-  - `NEXT_PUBLIC_SUPABASE_ANON_KEY`
-- `apps/worker/.env`
-  - `SUPABASE_URL`
-  - `SUPABASE_SERVICE_ROLE_KEY`
-  - `OPENSKY_USERNAME` optional
-  - `OPENSKY_PASSWORD` optional
-  - `POLL_INTERVAL_MS`
+- `NEXT_PUBLIC_SUPABASE_URL`
+- `NEXT_PUBLIC_SUPABASE_ANON_KEY`
 
-5. Run the frontend:
+4. Fill in the worker env vars in `apps/worker/.env`.
+
+- `SUPABASE_URL`
+- `SUPABASE_SERVICE_ROLE_KEY`
+- `POLL_INTERVAL_MS`
+- `OPENSKY_USERNAME` optional
+- `OPENSKY_PASSWORD` optional
+
+5. Start the frontend.
 
 ```bash
 npm run dev:web
 ```
 
-6. In another terminal, run the worker:
+6. Start the worker in a second terminal.
 
 ```bash
 npm run dev:worker
@@ -71,32 +74,48 @@ npm run dev:worker
 
 7. Open `http://localhost:3000`.
 
-## Supabase Setup
+## Verification Commands
 
-Manual setup is documented in [docs/supabase-phase2.md](/Users/gracelu/Desktop/flight-tracker/docs/supabase-phase2.md).
-Phase 3 local verification is documented in [docs/phase3-local-verification.md](/Users/gracelu/Desktop/flight-tracker/docs/phase3-local-verification.md).
+```bash
+npm run build:web
+npm run build:worker
+npm run lint:web
+```
 
-## Required Environment Variables
+## Deployment Docs
 
-- Frontend:
-  - `NEXT_PUBLIC_SUPABASE_URL`
-  - `NEXT_PUBLIC_SUPABASE_ANON_KEY`
-- Worker:
+- Supabase setup: [docs/supabase-phase2.md](/Users/gracelu/Desktop/flight-tracker/docs/supabase-phase2.md)
+- Phase 3 local verification: [docs/phase3-local-verification.md](/Users/gracelu/Desktop/flight-tracker/docs/phase3-local-verification.md)
+- Phase 4 deployment: [docs/phase4-deployment.md](/Users/gracelu/Desktop/flight-tracker/docs/phase4-deployment.md)
+- Submission checklist: [docs/submission-checklist.md](/Users/gracelu/Desktop/flight-tracker/docs/submission-checklist.md)
+
+## Deployment Summary
+
+### `apps/worker` on Railway
+
+- root directory: `apps/worker`
+- build command: `npm install && npm run build`
+- start command: `npm run start`
+- required env vars:
   - `SUPABASE_URL`
   - `SUPABASE_SERVICE_ROLE_KEY`
   - `POLL_INTERVAL_MS`
-  - `OPENSKY_USERNAME` optional
-  - `OPENSKY_PASSWORD` optional
+- optional env vars:
+  - `OPENSKY_USERNAME`
+  - `OPENSKY_PASSWORD`
 
-## Known Phase 3 Limitations
+### `apps/web` on Vercel
 
-- Region assignment is a simple fixed coordinate bucket: `global`, `north-america`, `europe`, `asia`.
-- OpenSky polling is subject to upstream rate limits, especially without credentials.
-- The UI is a live list/dashboard only; the map layer is intentionally deferred.
-- Deployment to Railway and Vercel is intentionally deferred.
+- project root: `apps/web`
+- framework preset: `Next.js`
+- build command: `npm run build`
+- install command: `npm install`
+- required env vars:
+  - `NEXT_PUBLIC_SUPABASE_URL`
+  - `NEXT_PUBLIC_SUPABASE_ANON_KEY`
 
-## What Phase 4 Will Add
+## Known Limits
 
-- live flight map rendering in the frontend
-- richer spatial presentation on top of the Phase 3 realtime feed
-- possible stale-flight cleanup and additional dashboard polish if needed
+- Region assignment still uses the simple Phase 3 bounding-box strategy.
+- OpenSky availability and rate limits remain upstream constraints.
+- Realtime degradation falls back to the latest fetched data; it does not add polling in the browser.

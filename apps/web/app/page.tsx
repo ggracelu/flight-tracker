@@ -1,5 +1,5 @@
-import { PhaseTwoDashboard } from '@/components/phase-two-dashboard';
+import { PhaseFourDashboard } from '@/components/phase-four-dashboard';
 
 export default function HomePage() {
-  return <PhaseTwoDashboard />;
+  return <PhaseFourDashboard />;
 }
