@@ -1,11 +1,12 @@
 export type WorkerConfig = {
   supabaseUrl: string;
   supabaseServiceRoleKey: string;
-  openskyUsername: string | null;
-  openskyPassword: string | null;
+  openskyClientId: string | null;
+  openskyClientSecret: string | null;
   pollIntervalMs: number;
   workerName: string;
   openskyBaseUrl: string;
+  openskyTokenUrl: string;
 };
 
 export type OpenSkyStatesResponse = {

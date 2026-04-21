@@ -24,12 +24,17 @@ const FlightMap = dynamic(
   }
 );
 
-const supabase = isSupabaseConfigured ? getSupabaseBrowserClient() : null;
 const FLIGHT_LIMIT = 120;
 const HEARTBEAT_STALE_MS = 2 * 60 * 1000;
 const DATA_STALE_MS = 5 * 60 * 1000;
 
 export function PhaseFourDashboard() {
+  const supabase = useMemo(() => {
+    if (!isSupabaseConfigured) return null;
+    if (typeof window === 'undefined') return null;
+    return getSupabaseBrowserClient();
+  }, []);
+
   const [session, setSession] = useState<Session | null>(null);
   const [authMode, setAuthMode] = useState<AuthMode>('sign-in');
   const [email, setEmail] = useState('');
@@ -82,7 +87,7 @@ export function PhaseFourDashboard() {
       isMounted = false;
       subscription.unsubscribe();
     };
-  }, []);
+  }, [supabase]);
 
   useEffect(() => {
     if (!session || !supabase) {
@@ -91,7 +96,7 @@ export function PhaseFourDashboard() {
     }
 
     void loadRegions();
-  }, [session]);
+  }, [session, supabase]);
 
   const savedRegionKeys = useMemo(() => regions.map((region) => region.region_key), [regions]);
 
@@ -177,7 +182,7 @@ export function PhaseFourDashboard() {
     setFlights(data ?? []);
     setFlightMessage(null);
     setLoadingFlights(false);
-  }, [savedRegionKeys, session]);
+  }, [savedRegionKeys, session, supabase]);
 
   const refreshWorkerStatus = useCallback(async () => {
     if (!supabase) {
@@ -196,7 +201,7 @@ export function PhaseFourDashboard() {
     }
 
     setWorkerStatus(data);
-  }, []);
+  }, [supabase]);
 
   useEffect(() => {
     if (!supabase) {
@@ -211,7 +216,7 @@ export function PhaseFourDashboard() {
 
     void refreshFlights();
     void refreshWorkerStatus();
-  }, [refreshFlights, refreshWorkerStatus, savedRegionKeys, session]);
+  }, [refreshFlights, refreshWorkerStatus, savedRegionKeys, session, supabase]);
 
   useEffect(() => {
     if (!flights.some((flight) => flight.id === activeFlightId)) {
@@ -280,7 +285,7 @@ export function PhaseFourDashboard() {
         void supabase.removeChannel(channel);
       }
     };
-  }, [refreshFlights, refreshWorkerStatus]);
+  }, [refreshFlights, refreshWorkerStatus, supabase]);
 
   async function loadRegions() {
     if (!supabase) {
@@ -705,11 +710,7 @@ export function PhaseFourDashboard() {
                       }`}
                       key={flight.id}
                     >
-                      <button
-                        className="contents text-left"
-                        onClick={() => setActiveFlightId(flight.id)}
-                        type="button"
-                      >
+                      <button className="contents text-left" onClick={() => setActiveFlightId(flight.id)} type="button">
                         <FlightCell label="Callsign" value={flight.callsign ?? flight.icao24.toUpperCase()} />
                         <FlightCell label="Origin" value={flight.origin_country ?? 'Unknown'} />
                         <FlightCell label="Latitude" value={formatCoordinate(flight.latitude)} />

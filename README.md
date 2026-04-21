@@ -57,8 +57,8 @@ cp apps/worker/.env.example apps/worker/.env
 - `SUPABASE_URL`
 - `SUPABASE_SERVICE_ROLE_KEY`
 - `POLL_INTERVAL_MS`
-- `OPENSKY_USERNAME` optional
-- `OPENSKY_PASSWORD` optional
+- `OPENSKY_CLIENT_ID` optional
+- `OPENSKY_CLIENT_SECRET` optional
 
 5. Start the frontend.
 
@@ -101,8 +101,8 @@ npm run lint:web
   - `SUPABASE_SERVICE_ROLE_KEY`
   - `POLL_INTERVAL_MS`
 - optional env vars:
-  - `OPENSKY_USERNAME`
-  - `OPENSKY_PASSWORD`
+  - `OPENSKY_CLIENT_ID`
+  - `OPENSKY_CLIENT_SECRET`
 
 ### `apps/web` on Vercel
 
