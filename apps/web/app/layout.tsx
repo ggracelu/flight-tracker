@@ -3,7 +3,7 @@ import './globals.css';
 
 export const metadata: Metadata = {
   title: 'Flight Tracker',
-  description: 'Track aircraft positions across selected regions.'
+  description: 'Supabase-backed flight tracking foundation with auth and saved regions.'
 };
 
 export default function RootLayout({
@@ -13,7 +13,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
-      <body>{children}</body>
+      <body className="min-h-screen bg-slate-950 text-slate-100 antialiased">{children}</body>
     </html>
   );
 }
