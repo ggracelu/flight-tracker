@@ -420,8 +420,8 @@ export function FlightTrackerApp() {
 
   return (
     <main className="mx-auto flex min-h-screen w-full max-w-7xl flex-col gap-6 px-5 py-8 lg:px-8">
-      <section className="grid gap-6 rounded-[2rem] border border-sky-300/20 bg-[linear-gradient(135deg,rgba(8,15,32,0.96),rgba(15,23,42,0.88))] p-6 shadow-[0_30px_80px_rgba(2,8,23,0.45)] backdrop-blur lg:grid-cols-[1.4fr_0.92fr]">
-        <div className="space-y-6">
+      <section className="grid gap-6 rounded-[2rem] border border-sky-300/20 bg-[linear-gradient(135deg,rgba(8,15,32,0.96),rgba(15,23,42,0.88))] p-6 shadow-[0_30px_80px_rgba(2,8,23,0.45)] backdrop-blur xl:grid-cols-[1.15fr_0.85fr]">
+        <div className="space-y-5">
           <div className="space-y-3">
             <div className="flex flex-wrap items-center gap-3">
               <p className="text-sm font-semibold uppercase tracking-[0.35em] text-sky-200">Flight Tracker</p>
@@ -436,7 +436,7 @@ export function FlightTrackerApp() {
             </p>
           </div>
 
-          <div className="grid gap-4 md:grid-cols-4">
+          <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
             <InfoCard
               title="Feed"
               text={session ? 'Your account view is active and can be personalized with saved regions.' : 'The public live feed is open for instant browsing.'}
@@ -459,7 +459,7 @@ export function FlightTrackerApp() {
             <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
               <div>
                 <p className="text-xs uppercase tracking-[0.25em] text-slate-400">Current View</p>
-                <h2 className="mt-2 text-2xl font-semibold text-white">{activeRegionSummary.title}</h2>
+                <h2 className="mt-2 text-xl font-semibold text-white sm:text-2xl">{activeRegionSummary.title}</h2>
               </div>
               <span className="rounded-full border border-white/10 bg-slate-950/50 px-3 py-1 text-xs uppercase tracking-[0.25em] text-slate-300">
                 {activeRegionSummary.badge}
@@ -469,83 +469,131 @@ export function FlightTrackerApp() {
           </div>
         </div>
 
-        <div className="rounded-[1.5rem] border border-white/10 bg-slate-950/70 p-6">
-          <p className="text-sm font-medium uppercase tracking-[0.3em] text-slate-400">Account</p>
-          {!isSupabaseConfigured ? (
-            <div className="mt-4 rounded-2xl border border-amber-400/30 bg-amber-400/10 p-4 text-sm leading-6 text-amber-100">
-              Add `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_ANON_KEY` to `apps/web/.env.local` to enable
-              sign-in and saved regions.
-            </div>
-          ) : loadingSession ? (
-            <p className="mt-4 text-sm text-slate-300">Checking your session...</p>
-          ) : session ? (
-            <div className="mt-4 space-y-4">
-              <div className="rounded-2xl border border-emerald-400/20 bg-emerald-400/10 p-4">
-                <p className="text-xs uppercase tracking-[0.25em] text-emerald-200">Signed In</p>
-                <p className="mt-2 text-sm text-white">{session.user.email}</p>
-                <p className="mt-2 text-sm text-emerald-100">
-                  Save regions below to personalize the map and flight list.
-                </p>
-              </div>
-              <button
-                className="w-full rounded-full border border-white/15 bg-white/5 px-4 py-3 text-sm font-medium text-white transition hover:bg-white/10"
-                onClick={handleSignOut}
-                type="button"
-              >
-                Sign Out
-              </button>
-            </div>
-          ) : (
-            <div className="mt-4 space-y-4">
-              <div className="rounded-2xl border border-sky-300/20 bg-sky-300/10 p-4 text-sm leading-6 text-sky-50">
-                Keep browsing as a guest, or sign in to save regions and get the same view back next time.
-              </div>
-
-              <form className="space-y-4" onSubmit={handleAuthSubmit}>
-                <div className="flex gap-2 rounded-full bg-slate-800 p-1 text-sm">
-                  <AuthModeButton active={authMode === 'sign-in'} label="Sign In" onClick={() => setAuthMode('sign-in')} />
-                  <AuthModeButton active={authMode === 'sign-up'} label="Create Account" onClick={() => setAuthMode('sign-up')} />
-                </div>
-
-                <label className="block space-y-2 text-sm text-slate-300">
-                  <span>Email</span>
-                  <input
-                    className="w-full rounded-2xl border border-white/10 bg-slate-950 px-4 py-3 text-white outline-none transition focus:border-cyan-300"
-                    onChange={(event) => setEmail(event.target.value)}
-                    required
-                    type="email"
-                    value={email}
-                  />
-                </label>
-
-                <label className="block space-y-2 text-sm text-slate-300">
-                  <span>Password</span>
-                  <input
-                    className="w-full rounded-2xl border border-white/10 bg-slate-950 px-4 py-3 text-white outline-none transition focus:border-cyan-300"
-                    minLength={6}
-                    onChange={(event) => setPassword(event.target.value)}
-                    required
-                    type="password"
-                    value={password}
-                  />
-                </label>
-
-                <button
-                  className="w-full rounded-full bg-cyan-300 px-4 py-3 text-sm font-semibold text-slate-950 transition hover:bg-cyan-200 disabled:cursor-not-allowed disabled:bg-slate-700 disabled:text-slate-300"
-                  disabled={submittingAuth}
-                  type="submit"
-                >
-                  {submittingAuth ? 'Working...' : authMode === 'sign-up' ? 'Create Account' : 'Sign In'}
-                </button>
-              </form>
-            </div>
-          )}
-
-          {authMessage ? <InlineNotice className="mt-4" tone="neutral" text={authMessage} /> : null}
+        <div className="grid gap-4 sm:grid-cols-3 xl:grid-cols-1">
+          <MetricCard label="Visible Flights" value={String(flights.length)} />
+          <MetricCard label="Mapped Flights" value={String(mapEligibleFlights.length)} />
+          <MetricCard label="Live Updates" value={channelHealth === 'degraded' ? 'Limited' : 'Connected'} />
         </div>
       </section>
 
-      <section className="grid gap-6 xl:grid-cols-[0.92fr_1.45fr]">
+      <section className="grid gap-6 xl:grid-cols-[1.45fr_0.78fr]">
+        <div className="space-y-6">
+          <div className="rounded-[1.85rem] border border-white/10 bg-slate-900/80 p-6">
+            <div className="flex flex-col gap-4 border-b border-white/10 pb-5 md:flex-row md:items-end md:justify-between">
+              <div>
+                <p className="text-sm font-medium uppercase tracking-[0.25em] text-slate-400">Live Map</p>
+                <h2 className="mt-3 text-3xl font-semibold text-white sm:text-4xl">Current flight positions</h2>
+              </div>
+
+              <div className="grid gap-3 text-sm text-slate-300 sm:grid-cols-3">
+                <MetricCard label="Latest Update" value={latestObservationAt ? formatRelativeTime(latestObservationAt) : 'Waiting'} />
+                <MetricCard label="Flight Data" value={formatFreshnessLabel(dataState)} />
+                <MetricCard label="System" value={systemStatus.shortLabel} />
+              </div>
+            </div>
+
+            {realtimeMessage ? <InlineNotice className="mt-6" tone="warning" text={realtimeMessage} /> : null}
+
+            <div className="mt-6">
+              <FlightMap
+                activeFlightId={activeFlightId}
+                emptyMessage="No flights with usable map coordinates are available for this view yet."
+                errorMessage={flightMessage}
+                flights={flights}
+                loading={loadingFlights}
+                onSelectFlight={setActiveFlightId}
+              />
+            </div>
+          </div>
+
+          <div className="grid gap-6 lg:grid-cols-[0.9fr_1.1fr]">
+            <div className="rounded-[1.75rem] border border-white/10 bg-[radial-gradient(circle_at_top,_rgba(56,189,248,0.12),_transparent_42%),linear-gradient(180deg,_rgba(15,23,42,0.92),_rgba(2,6,23,0.98))] p-6">
+              <div className="flex items-start justify-between gap-4">
+                <div>
+                  <p className="text-sm font-medium uppercase tracking-[0.25em] text-slate-400">Selected Flight</p>
+                  <h2 className="mt-3 text-2xl font-semibold text-white">
+                    {activeFlight ? activeFlight.callsign ?? activeFlight.icao24.toUpperCase() : 'No flight selected'}
+                  </h2>
+                </div>
+                <StatusPill tone={activeFlight?.on_ground ? 'neutral' : 'success'} text={activeFlight ? (activeFlight.on_ground ? 'On Ground' : 'In Flight') : 'Waiting'} />
+              </div>
+
+              {activeFlight ? (
+                <div className="mt-5 grid gap-3 sm:grid-cols-2">
+                  <StatusLine label="Origin" value={activeFlight.origin_country ?? 'Unknown'} />
+                  <StatusLine label="Region" value={REGION_LABELS[activeFlight.region_key] ?? activeFlight.region_key} />
+                  <StatusLine label="Latitude" value={formatCoordinate(activeFlight.latitude)} />
+                  <StatusLine label="Longitude" value={formatCoordinate(activeFlight.longitude)} />
+                  <StatusLine label="Altitude" value={formatNumber(activeFlight.baro_altitude, 'm')} />
+                  <StatusLine label="Speed" value={formatNumber(activeFlight.velocity, 'm/s')} />
+                  <StatusLine label="Track" value={formatTrack(activeFlight.true_track)} />
+                  <StatusLine label="Last Seen" value={formatRelativeTime(activeFlight.observed_at)} />
+                </div>
+              ) : (
+                <div className="mt-5 rounded-2xl border border-dashed border-white/10 p-5 text-sm text-slate-300">
+                  Choose a flight from the list or map to inspect it here.
+                </div>
+              )}
+            </div>
+
+            <div className="rounded-[1.75rem] border border-white/10 bg-slate-900/80 p-6">
+              <div className="flex flex-col gap-4 border-b border-white/10 pb-5 md:flex-row md:items-end md:justify-between">
+                <div>
+                  <p className="text-sm font-medium uppercase tracking-[0.25em] text-slate-400">Flight Feed</p>
+                  <h2 className="mt-3 text-3xl font-semibold text-white">List and map stay in sync</h2>
+                </div>
+              </div>
+
+              {flightMessage ? <InlineNotice className="mt-6" tone="error" text={flightMessage} /> : null}
+
+              {loadingFlights ? (
+                <div className="mt-6 rounded-2xl border border-dashed border-white/10 p-5 text-sm text-slate-300">
+                  Loading the latest live flights...
+                </div>
+              ) : flights.length === 0 ? (
+                <div className="mt-6 rounded-2xl border border-dashed border-white/10 p-5 text-sm text-slate-300">
+                  No live flights match this view right now. Try again in a moment or broaden your saved regions.
+                </div>
+              ) : (
+                <div className="mt-6 overflow-hidden rounded-[1.5rem] border border-white/10">
+                  <div className="hidden grid-cols-[1.1fr_1fr_1fr_0.95fr_0.95fr_0.75fr_1fr_1fr] gap-3 bg-slate-950/80 px-4 py-3 text-xs uppercase tracking-[0.2em] text-slate-400 lg:grid">
+                    <span>Flight</span>
+                    <span>Origin</span>
+                    <span>Latitude</span>
+                    <span>Longitude</span>
+                    <span>Altitude</span>
+                    <span>Status</span>
+                    <span>Region</span>
+                    <span>Updated</span>
+                  </div>
+
+                  <div className="divide-y divide-white/10">
+                    {flights.map((flight) => (
+                      <article
+                        className={`grid gap-3 px-4 py-4 transition lg:grid-cols-[1.1fr_1fr_1fr_0.95fr_0.95fr_0.75fr_1fr_1fr] lg:items-center ${
+                          flight.id === activeFlightId ? 'bg-cyan-300/10' : 'bg-slate-950/55 hover:bg-white/5'
+                        }`}
+                        key={flight.id}
+                      >
+                        <button className="contents text-left" onClick={() => setActiveFlightId(flight.id)} type="button">
+                          <FlightCell label="Flight" value={flight.callsign ?? flight.icao24.toUpperCase()} />
+                          <FlightCell label="Origin" value={flight.origin_country ?? 'Unknown'} />
+                          <FlightCell label="Latitude" value={formatCoordinate(flight.latitude)} />
+                          <FlightCell label="Longitude" value={formatCoordinate(flight.longitude)} />
+                          <FlightCell label="Altitude" value={formatNumber(flight.baro_altitude, 'm')} />
+                          <FlightCell label="Status" value={flight.on_ground ? 'On ground' : 'In flight'} />
+                          <FlightCell label="Region" value={REGION_LABELS[flight.region_key] ?? flight.region_key} />
+                          <FlightCell label="Updated" value={formatRelativeTime(flight.observed_at)} />
+                        </button>
+                      </article>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+
         <div className="space-y-6">
           <div className="rounded-[1.75rem] border border-white/10 bg-slate-900/80 p-6">
             <div className="flex items-start justify-between gap-4">
@@ -623,127 +671,81 @@ export function FlightTrackerApp() {
             {regionMessage ? <InlineNotice className="mt-4" tone="neutral" text={regionMessage} /> : null}
           </div>
 
-          <div className="rounded-[1.75rem] border border-white/10 bg-[radial-gradient(circle_at_top,_rgba(56,189,248,0.12),_transparent_42%),linear-gradient(180deg,_rgba(15,23,42,0.92),_rgba(2,6,23,0.98))] p-6">
-            <div className="flex items-start justify-between gap-4">
-              <div>
-                <p className="text-sm font-medium uppercase tracking-[0.25em] text-slate-400">Selected Flight</p>
-                <h2 className="mt-3 text-2xl font-semibold text-white">
-                  {activeFlight ? activeFlight.callsign ?? activeFlight.icao24.toUpperCase() : 'No flight selected'}
-                </h2>
+          <div className="rounded-[1.5rem] border border-white/10 bg-slate-950/70 p-6">
+            <p className="text-sm font-medium uppercase tracking-[0.3em] text-slate-400">Account</p>
+            {!isSupabaseConfigured ? (
+              <div className="mt-4 rounded-2xl border border-amber-400/30 bg-amber-400/10 p-4 text-sm leading-6 text-amber-100">
+                Add `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_ANON_KEY` to `apps/web/.env.local` to enable
+                sign-in and saved regions.
               </div>
-              <StatusPill tone={activeFlight?.on_ground ? 'neutral' : 'success'} text={activeFlight ? (activeFlight.on_ground ? 'On Ground' : 'In Flight') : 'Waiting'} />
-            </div>
-
-            {activeFlight ? (
-              <div className="mt-5 grid gap-3 sm:grid-cols-2">
-                <StatusLine label="Origin" value={activeFlight.origin_country ?? 'Unknown'} />
-                <StatusLine label="Region" value={REGION_LABELS[activeFlight.region_key] ?? activeFlight.region_key} />
-                <StatusLine label="Latitude" value={formatCoordinate(activeFlight.latitude)} />
-                <StatusLine label="Longitude" value={formatCoordinate(activeFlight.longitude)} />
-                <StatusLine label="Altitude" value={formatNumber(activeFlight.baro_altitude, 'm')} />
-                <StatusLine label="Speed" value={formatNumber(activeFlight.velocity, 'm/s')} />
-                <StatusLine label="Track" value={formatTrack(activeFlight.true_track)} />
-                <StatusLine label="Last Seen" value={formatRelativeTime(activeFlight.observed_at)} />
+            ) : loadingSession ? (
+              <p className="mt-4 text-sm text-slate-300">Checking your session...</p>
+            ) : session ? (
+              <div className="mt-4 space-y-4">
+                <div className="rounded-2xl border border-emerald-400/20 bg-emerald-400/10 p-4">
+                  <p className="text-xs uppercase tracking-[0.25em] text-emerald-200">Signed In</p>
+                  <p className="mt-2 text-sm text-white">{session.user.email}</p>
+                  <p className="mt-2 text-sm text-emerald-100">
+                    Save regions above to personalize the map and flight list.
+                  </p>
+                </div>
+                <button
+                  className="w-full rounded-full border border-white/15 bg-white/5 px-4 py-3 text-sm font-medium text-white transition hover:bg-white/10"
+                  onClick={handleSignOut}
+                  type="button"
+                >
+                  Sign Out
+                </button>
               </div>
             ) : (
-              <div className="mt-5 rounded-2xl border border-dashed border-white/10 p-5 text-sm text-slate-300">
-                Choose a flight from the list or map to inspect it here.
+              <div className="mt-4 space-y-4">
+                <div className="rounded-2xl border border-sky-300/20 bg-sky-300/10 p-4 text-sm leading-6 text-sky-50">
+                  Keep browsing as a guest, or sign in to save regions and get the same view back next time.
+                </div>
+
+                <form className="space-y-4" onSubmit={handleAuthSubmit}>
+                  <div className="flex gap-2 rounded-full bg-slate-800 p-1 text-sm">
+                    <AuthModeButton active={authMode === 'sign-in'} label="Sign In" onClick={() => setAuthMode('sign-in')} />
+                    <AuthModeButton active={authMode === 'sign-up'} label="Create Account" onClick={() => setAuthMode('sign-up')} />
+                  </div>
+
+                  <label className="block space-y-2 text-sm text-slate-300">
+                    <span>Email</span>
+                    <input
+                      className="w-full rounded-2xl border border-white/10 bg-slate-950 px-4 py-3 text-white outline-none transition focus:border-cyan-300"
+                      onChange={(event) => setEmail(event.target.value)}
+                      required
+                      type="email"
+                      value={email}
+                    />
+                  </label>
+
+                  <label className="block space-y-2 text-sm text-slate-300">
+                    <span>Password</span>
+                    <input
+                      className="w-full rounded-2xl border border-white/10 bg-slate-950 px-4 py-3 text-white outline-none transition focus:border-cyan-300"
+                      minLength={6}
+                      onChange={(event) => setPassword(event.target.value)}
+                      required
+                      type="password"
+                      value={password}
+                    />
+                  </label>
+
+                  <button
+                    className="w-full rounded-full bg-cyan-300 px-4 py-3 text-sm font-semibold text-slate-950 transition hover:bg-cyan-200 disabled:cursor-not-allowed disabled:bg-slate-700 disabled:text-slate-300"
+                    disabled={submittingAuth}
+                    type="submit"
+                  >
+                    {submittingAuth ? 'Working...' : authMode === 'sign-up' ? 'Create Account' : 'Sign In'}
+                  </button>
+                </form>
               </div>
             )}
+
+            {authMessage ? <InlineNotice className="mt-4" tone="neutral" text={authMessage} /> : null}
           </div>
         </div>
-
-        <section className="space-y-6">
-          <div className="rounded-[1.75rem] border border-white/10 bg-slate-900/80 p-6">
-            <div className="flex flex-col gap-4 border-b border-white/10 pb-5 md:flex-row md:items-end md:justify-between">
-              <div>
-                <p className="text-sm font-medium uppercase tracking-[0.25em] text-slate-400">Live Map</p>
-                <h2 className="mt-3 text-3xl font-semibold text-white">Current flight positions</h2>
-              </div>
-
-              <div className="grid gap-3 text-sm text-slate-300 sm:grid-cols-3">
-                <MetricCard label="Visible Flights" value={String(flights.length)} />
-                <MetricCard label="Mapped Flights" value={String(mapEligibleFlights.length)} />
-                <MetricCard label="Live Updates" value={channelHealth === 'degraded' ? 'Limited' : 'Connected'} />
-              </div>
-            </div>
-
-            {realtimeMessage ? <InlineNotice className="mt-6" tone="warning" text={realtimeMessage} /> : null}
-
-            <div className="mt-6">
-              <FlightMap
-                activeFlightId={activeFlightId}
-                emptyMessage="No flights with usable map coordinates are available for this view yet."
-                errorMessage={flightMessage}
-                flights={flights}
-                loading={loadingFlights}
-                onSelectFlight={setActiveFlightId}
-              />
-            </div>
-          </div>
-
-          <div className="rounded-[1.75rem] border border-white/10 bg-slate-900/80 p-6">
-            <div className="flex flex-col gap-4 border-b border-white/10 pb-5 md:flex-row md:items-end md:justify-between">
-              <div>
-                <p className="text-sm font-medium uppercase tracking-[0.25em] text-slate-400">Flight Feed</p>
-                <h2 className="mt-3 text-3xl font-semibold text-white">List and map stay in sync</h2>
-              </div>
-
-              <div className="grid gap-3 text-sm text-slate-300 sm:grid-cols-3">
-                <MetricCard label="Latest Update" value={latestObservationAt ? formatRelativeTime(latestObservationAt) : 'Waiting'} />
-                <MetricCard label="Flight Data" value={formatFreshnessLabel(dataState)} />
-                <MetricCard label="System" value={systemStatus.shortLabel} />
-              </div>
-            </div>
-
-            {flightMessage ? <InlineNotice className="mt-6" tone="error" text={flightMessage} /> : null}
-
-            {loadingFlights ? (
-              <div className="mt-6 rounded-2xl border border-dashed border-white/10 p-5 text-sm text-slate-300">
-                Loading the latest live flights...
-              </div>
-            ) : flights.length === 0 ? (
-              <div className="mt-6 rounded-2xl border border-dashed border-white/10 p-5 text-sm text-slate-300">
-                No live flights match this view right now. Try again in a moment or broaden your saved regions.
-              </div>
-            ) : (
-              <div className="mt-6 overflow-hidden rounded-[1.5rem] border border-white/10">
-                <div className="hidden grid-cols-[1.1fr_1fr_1fr_0.95fr_0.95fr_0.75fr_1fr_1fr] gap-3 bg-slate-950/80 px-4 py-3 text-xs uppercase tracking-[0.2em] text-slate-400 lg:grid">
-                  <span>Flight</span>
-                  <span>Origin</span>
-                  <span>Latitude</span>
-                  <span>Longitude</span>
-                  <span>Altitude</span>
-                  <span>Status</span>
-                  <span>Region</span>
-                  <span>Updated</span>
-                </div>
-
-                <div className="divide-y divide-white/10">
-                  {flights.map((flight) => (
-                    <article
-                      className={`grid gap-3 px-4 py-4 transition lg:grid-cols-[1.1fr_1fr_1fr_0.95fr_0.95fr_0.75fr_1fr_1fr] lg:items-center ${
-                        flight.id === activeFlightId ? 'bg-cyan-300/10' : 'bg-slate-950/55 hover:bg-white/5'
-                      }`}
-                      key={flight.id}
-                    >
-                      <button className="contents text-left" onClick={() => setActiveFlightId(flight.id)} type="button">
-                        <FlightCell label="Flight" value={flight.callsign ?? flight.icao24.toUpperCase()} />
-                        <FlightCell label="Origin" value={flight.origin_country ?? 'Unknown'} />
-                        <FlightCell label="Latitude" value={formatCoordinate(flight.latitude)} />
-                        <FlightCell label="Longitude" value={formatCoordinate(flight.longitude)} />
-                        <FlightCell label="Altitude" value={formatNumber(flight.baro_altitude, 'm')} />
-                        <FlightCell label="Status" value={flight.on_ground ? 'On ground' : 'In flight'} />
-                        <FlightCell label="Region" value={REGION_LABELS[flight.region_key] ?? flight.region_key} />
-                        <FlightCell label="Updated" value={formatRelativeTime(flight.observed_at)} />
-                      </button>
-                    </article>
-                  ))}
-                </div>
-              </div>
-            )}
-          </div>
-        </section>
       </section>
     </main>
   );
