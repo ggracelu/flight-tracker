@@ -1,5 +1,5 @@
-import { PhaseFourDashboard } from '@/components/phase-four-dashboard';
+import { FlightTrackerApp } from '@/components/flight-tracker-app';
 
 export default function HomePage() {
-  return <PhaseFourDashboard />;
+  return <FlightTrackerApp />;
 }

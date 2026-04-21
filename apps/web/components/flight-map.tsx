@@ -38,7 +38,7 @@ export function FlightMap({
     mappableFlights.find((flight) => flight.id === activeFlightId) ?? mappableFlights[0] ?? null;
 
   if (loading) {
-    return <MapStateBox message="Loading live flight positions from Supabase..." tone="neutral" />;
+    return <MapStateBox message="Loading live flight positions..." tone="neutral" />;
   }
 
   if (errorMessage) {
@@ -56,12 +56,7 @@ export function FlightMap({
 
   return (
     <div className="h-[420px] overflow-hidden rounded-[1.5rem] border border-white/10">
-      <MapContainer
-        center={center}
-        className="h-full w-full"
-        scrollWheelZoom
-        zoom={DEFAULT_ZOOM}
-      >
+      <MapContainer center={center} className="h-full w-full" scrollWheelZoom zoom={DEFAULT_ZOOM}>
         <TileLayer
           attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
           url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
@@ -80,12 +75,11 @@ export function FlightMap({
               <div className="space-y-2 text-sm text-slate-900">
                 <p className="font-semibold">{flight.callsign ?? flight.icao24.toUpperCase()}</p>
                 <MapPopupLine label="Origin" value={flight.origin_country ?? 'Unknown'} />
+                <MapPopupLine label="Status" value={flight.on_ground ? 'On ground' : 'In flight'} />
                 <MapPopupLine label="Altitude" value={formatNumber(flight.baro_altitude, 'm')} />
-                <MapPopupLine label="Velocity" value={formatNumber(flight.velocity, 'm/s')} />
-                <MapPopupLine label="On ground" value={flight.on_ground ? 'Yes' : 'No'} />
+                <MapPopupLine label="Speed" value={formatNumber(flight.velocity, 'm/s')} />
                 <MapPopupLine label="Region" value={REGION_LABELS[flight.region_key] ?? flight.region_key} />
-                <MapPopupLine label="Observed" value={formatDateTime(flight.observed_at)} />
-                <MapPopupLine label="Updated" value={formatDateTime(flight.updated_at)} />
+                <MapPopupLine label="Last seen" value={formatDateTime(flight.observed_at)} />
               </div>
             </Popup>
           </Marker>

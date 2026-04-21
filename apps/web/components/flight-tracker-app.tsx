@@ -16,6 +16,7 @@ import {
 
 type AuthMode = 'sign-in' | 'sign-up';
 type ChannelHealth = 'idle' | 'healthy' | 'degraded';
+type FreshnessState = 'fresh' | 'stale' | 'unknown';
 
 const FlightMap = dynamic(
   () => import('@/components/flight-map').then((module) => module.FlightMap),
@@ -28,7 +29,7 @@ const FLIGHT_LIMIT = 120;
 const HEARTBEAT_STALE_MS = 2 * 60 * 1000;
 const DATA_STALE_MS = 5 * 60 * 1000;
 
-export function PhaseFourDashboard() {
+export function FlightTrackerApp() {
   const supabase = useMemo(() => {
     if (!isSupabaseConfigured) return null;
     if (typeof window === 'undefined') return null;
@@ -69,7 +70,7 @@ export function PhaseFourDashboard() {
       }
 
       if (error) {
-        setAuthMessage(error.message);
+        setAuthMessage(toUserMessage(error.message, 'We could not restore your session.'));
       }
 
       setSession(data.session);
@@ -89,15 +90,6 @@ export function PhaseFourDashboard() {
     };
   }, [supabase]);
 
-  useEffect(() => {
-    if (!session || !supabase) {
-      setRegions([]);
-      return;
-    }
-
-    void loadRegions();
-  }, [session, supabase]);
-
   const savedRegionKeys = useMemo(() => regions.map((region) => region.region_key), [regions]);
 
   const availableRegions = useMemo(() => {
@@ -105,45 +97,61 @@ export function PhaseFourDashboard() {
     return REGION_OPTIONS.filter((option) => !selectedKeys.has(option.key));
   }, [savedRegionKeys]);
 
+  const mapEligibleFlights = useMemo(() => flights.filter(hasValidCoordinates), [flights]);
+  const activeFlight = useMemo(
+    () => flights.find((flight) => flight.id === activeFlightId) ?? flights[0] ?? null,
+    [activeFlightId, flights]
+  );
+
   const activeRegionSummary = useMemo(() => {
     if (!session) {
       return {
-        label: 'Public global view',
-        description: 'Anonymous visitors see the shared global telemetry stream across the map and flight list.',
-        filterMode: 'Public shared feed'
+        badge: 'Public Live Feed',
+        title: 'Browse live flights without signing in',
+        description:
+          'The map and flight list start on the shared worldwide feed so the app is useful immediately.',
+        filterMode: 'Global feed',
+        helper: 'Sign in only if you want your own saved region view.'
       };
     }
 
     if (savedRegionKeys.length === 0) {
       return {
-        label: 'No saved regions',
-        description: 'Add one or more regions to unlock your personalized map and list view.',
-        filterMode: 'No personalized regions saved'
+        badge: 'Personalize Your View',
+        title: 'You are browsing the public live feed',
+        description:
+          'Save one or more regions to tailor the map and list to the places you care about. Until then, everything stays fully usable.',
+        filterMode: 'Global feed',
+        helper: 'Add Global if you want to keep the worldwide view while signed in.'
       };
     }
 
     if (savedRegionKeys.includes('global')) {
       return {
-        label: 'Global preference enabled',
-        description: 'Your saved regions include Global, so both the map and list show the full shared feed.',
-        filterMode: 'Global override'
+        badge: 'Saved View',
+        title: 'Your saved regions include Global',
+        description:
+          'You will keep seeing the full shared flight feed while staying signed in across sessions.',
+        filterMode: 'Global saved view',
+        helper: 'Remove Global if you want the map and list narrowed to specific regions only.'
       };
     }
 
     return {
-      label: savedRegionKeys.map((key) => REGION_LABELS[key] ?? key).join(', '),
-      description: 'The map and list stay locked to the regions saved on your account.',
-      filterMode: 'Personalized region filter'
+      badge: 'Saved View',
+      title: savedRegionKeys.map((key) => REGION_LABELS[key] ?? key).join(', '),
+      description: 'The map, selected flight details, and flight list stay focused on your saved regions.',
+      filterMode: 'Saved region filter',
+      helper: 'You can add or remove regions at any time.'
     };
   }, [savedRegionKeys, session]);
-
-  const mapEligibleFlights = useMemo(() => flights.filter(hasValidCoordinates), [flights]);
 
   const latestObservationAt = flights[0]?.observed_at ?? null;
   const heartbeatAgeMs = workerStatus ? Date.now() - new Date(workerStatus.last_heartbeat_at).getTime() : null;
   const dataAgeMs = latestObservationAt ? Date.now() - new Date(latestObservationAt).getTime() : null;
   const heartbeatState = getFreshnessState(heartbeatAgeMs, HEARTBEAT_STALE_MS);
   const dataState = getFreshnessState(dataAgeMs, DATA_STALE_MS);
+  const systemStatus = getSystemStatus(workerStatus, heartbeatState, dataState, channelHealth);
 
   useEffect(() => {
     if (availableRegions.length > 0 && !availableRegions.some((region) => region.key === selectedRegionKey)) {
@@ -173,7 +181,7 @@ export function PhaseFourDashboard() {
     const { data, error } = await query;
 
     if (error) {
-      setFlightMessage(error.message);
+      setFlightMessage(toUserMessage(error.message, 'Live flights are temporarily unavailable.'));
       setFlights([]);
       setLoadingFlights(false);
       return;
@@ -196,7 +204,7 @@ export function PhaseFourDashboard() {
       .maybeSingle();
 
     if (error) {
-      setFlightMessage(error.message);
+      setRealtimeMessage(toUserMessage(error.message, 'Live update status is temporarily unavailable.'));
       return;
     }
 
@@ -208,15 +216,9 @@ export function PhaseFourDashboard() {
       return;
     }
 
-    if (session && savedRegionKeys.length === 0) {
-      setFlights([]);
-      setLoadingFlights(false);
-      return;
-    }
-
     void refreshFlights();
     void refreshWorkerStatus();
-  }, [refreshFlights, refreshWorkerStatus, savedRegionKeys, session, supabase]);
+  }, [refreshFlights, refreshWorkerStatus, supabase]);
 
   useEffect(() => {
     if (!flights.some((flight) => flight.id === activeFlightId)) {
@@ -232,7 +234,7 @@ export function PhaseFourDashboard() {
     const channels: RealtimeChannel[] = [];
 
     const flightsChannel = supabase
-      .channel('phase4-flights')
+      .channel('flights-live-feed')
       .on(
         'postgres_changes',
         {
@@ -252,14 +254,14 @@ export function PhaseFourDashboard() {
 
         if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT' || status === 'CLOSED') {
           setChannelHealth('degraded');
-          setRealtimeMessage('Realtime is unavailable. The dashboard is showing the latest fetched data.');
+          setRealtimeMessage('Live updates are having trouble. The latest available flight data is still shown below.');
         }
       });
 
     channels.push(flightsChannel);
 
     const workerChannel = supabase
-      .channel('phase4-worker-status')
+      .channel('flight-system-status')
       .on(
         'postgres_changes',
         {
@@ -274,7 +276,6 @@ export function PhaseFourDashboard() {
       .subscribe((status) => {
         if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT' || status === 'CLOSED') {
           setChannelHealth('degraded');
-          setRealtimeMessage('Realtime is unavailable. Worker heartbeat updates may lag until refresh.');
         }
       });
 
@@ -287,7 +288,7 @@ export function PhaseFourDashboard() {
     };
   }, [refreshFlights, refreshWorkerStatus, supabase]);
 
-  async function loadRegions() {
+  const loadRegions = useCallback(async () => {
     if (!supabase) {
       return;
     }
@@ -298,19 +299,28 @@ export function PhaseFourDashboard() {
       .order('created_at', { ascending: true });
 
     if (error) {
-      setRegionMessage(error.message);
+      setRegionMessage(toUserMessage(error.message, 'We could not load your saved regions.'));
       return;
     }
 
     setRegions(data ?? []);
     setRegionMessage(null);
-  }
+  }, [supabase]);
+
+  useEffect(() => {
+    if (!session || !supabase) {
+      setRegions([]);
+      return;
+    }
+
+    void loadRegions();
+  }, [loadRegions, session, supabase]);
 
   async function handleAuthSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
 
     if (!supabase) {
-      setAuthMessage('Add the Supabase URL and anon key to apps/web/.env.local first.');
+      setAuthMessage('Add `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_ANON_KEY` in `apps/web/.env.local` to enable sign-in.');
       return;
     }
 
@@ -328,15 +338,20 @@ export function PhaseFourDashboard() {
         : await supabase.auth.signInWithPassword(credentials);
 
     if (result.error) {
-      setAuthMessage(result.error.message);
+      setAuthMessage(
+        toUserMessage(
+          result.error.message,
+          authMode === 'sign-up' ? 'We could not create your account.' : 'We could not sign you in.'
+        )
+      );
       setSubmittingAuth(false);
       return;
     }
 
     setAuthMessage(
       authMode === 'sign-up'
-        ? 'Account created. Check your email if your Supabase project requires confirmation.'
-        : 'Signed in.'
+        ? 'Account created. Check your email if confirmation is required before signing in.'
+        : 'You are signed in and your saved regions are ready.'
     );
     setSubmittingAuth(false);
     setPassword('');
@@ -349,20 +364,20 @@ export function PhaseFourDashboard() {
 
     const { error } = await supabase.auth.signOut();
     if (error) {
-      setAuthMessage(error.message);
+      setAuthMessage(toUserMessage(error.message, 'We could not sign you out right now.'));
       return;
     }
 
     setRegions([]);
     setRegionMessage(null);
-    setAuthMessage('Signed out.');
+    setAuthMessage('Signed out. You are back on the public live feed.');
   }
 
   async function handleAddRegion(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
 
     if (!supabase || !session) {
-      setRegionMessage('Sign in before saving regions.');
+      setRegionMessage('Sign in to save regions for your account.');
       return;
     }
 
@@ -373,13 +388,13 @@ export function PhaseFourDashboard() {
     });
 
     if (error) {
-      setRegionMessage(error.message);
+      setRegionMessage(toUserMessage(error.message, 'We could not save that region.'));
       setSubmittingRegion(false);
       return;
     }
 
     await loadRegions();
-    setRegionMessage('Region saved.');
+    setRegionMessage(`${REGION_LABELS[selectedRegionKey] ?? selectedRegionKey} saved to your view.`);
     setSubmittingRegion(false);
   }
 
@@ -393,70 +408,84 @@ export function PhaseFourDashboard() {
     const { error } = await supabase.from('user_regions').delete().eq('id', id);
 
     if (error) {
-      setRegionMessage(error.message);
+      setRegionMessage(toUserMessage(error.message, 'We could not remove that region.'));
       setSubmittingRegion(false);
       return;
     }
 
     await loadRegions();
-    setRegionMessage('Region removed.');
+    setRegionMessage('Saved region removed.');
     setSubmittingRegion(false);
   }
 
   return (
     <main className="mx-auto flex min-h-screen w-full max-w-7xl flex-col gap-6 px-5 py-8 lg:px-8">
-      <section className="grid gap-6 rounded-[2rem] border border-sky-400/20 bg-slate-950/80 p-6 shadow-[0_30px_80px_rgba(2,8,23,0.55)] backdrop-blur lg:grid-cols-[1.45fr_0.95fr]">
-        <div className="space-y-5">
+      <section className="grid gap-6 rounded-[2rem] border border-sky-300/20 bg-[linear-gradient(135deg,rgba(8,15,32,0.96),rgba(15,23,42,0.88))] p-6 shadow-[0_30px_80px_rgba(2,8,23,0.45)] backdrop-blur lg:grid-cols-[1.4fr_0.92fr]">
+        <div className="space-y-6">
           <div className="space-y-3">
-            <p className="text-sm font-semibold uppercase tracking-[0.35em] text-cyan-300">Flight Tracker</p>
+            <div className="flex flex-wrap items-center gap-3">
+              <p className="text-sm font-semibold uppercase tracking-[0.35em] text-sky-200">Flight Tracker</p>
+              <StatusPill tone={systemStatus.tone} text={systemStatus.label} />
+            </div>
             <h1 className="max-w-4xl text-4xl font-semibold tracking-tight text-white sm:text-5xl">
-              Phase 4 adds a live map on top of the existing worker, Supabase, and Realtime pipeline.
+              Live flights, a synced map, and saved regions in one clean view.
             </h1>
             <p className="max-w-3xl text-base leading-7 text-slate-300 sm:text-lg">
-              The browser still reads from Supabase only. The worker keeps polling OpenSky, Supabase stays the
-              shared source of truth, and the dashboard now keeps the list and map in sync.
+              Browse the public live feed right away, then sign in if you want the map and flight list to follow your
+              saved regions everywhere you use the app.
             </p>
           </div>
 
           <div className="grid gap-4 md:grid-cols-4">
             <InfoCard
-              title="Heartbeat"
-              text={
-                workerStatus
-                  ? `${formatFreshnessLabel(heartbeatState)} heartbeat, last seen ${formatRelativeTime(workerStatus.last_heartbeat_at)}.`
-                  : 'Waiting for the worker heartbeat row to appear in Supabase.'
-              }
+              title="Feed"
+              text={session ? 'Your account view is active and can be personalized with saved regions.' : 'The public live feed is open for instant browsing.'}
             />
             <InfoCard
-              title="Visible Flights"
-              text={`${flights.length} flights in the current feed, ${mapEligibleFlights.length} with valid map coordinates.`}
+              title="Flights"
+              text={`${flights.length} flights are currently visible, with ${mapEligibleFlights.length} ready to display on the map.`}
             />
-            <InfoCard title="Region State" text={`${activeRegionSummary.label}. ${activeRegionSummary.description}`} />
             <InfoCard
-              title="Realtime"
-              text={
-                channelHealth === 'degraded'
-                  ? 'Realtime is degraded. The UI remains usable with the last successful fetch.'
-                  : 'Supabase Realtime keeps the map and list synced with database changes.'
-              }
+              title="View"
+              text={`${activeRegionSummary.filterMode}. ${activeRegionSummary.helper}`}
             />
+            <InfoCard
+              title="Updated"
+              text={latestObservationAt ? `${formatRelativeTime(latestObservationAt)} from the latest flight update.` : 'Waiting for live flight data to appear.'}
+            />
+          </div>
+
+          <div className="rounded-[1.5rem] border border-white/10 bg-white/5 p-5">
+            <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+              <div>
+                <p className="text-xs uppercase tracking-[0.25em] text-slate-400">Current View</p>
+                <h2 className="mt-2 text-2xl font-semibold text-white">{activeRegionSummary.title}</h2>
+              </div>
+              <span className="rounded-full border border-white/10 bg-slate-950/50 px-3 py-1 text-xs uppercase tracking-[0.25em] text-slate-300">
+                {activeRegionSummary.badge}
+              </span>
+            </div>
+            <p className="mt-4 max-w-3xl text-sm leading-7 text-slate-300">{activeRegionSummary.description}</p>
           </div>
         </div>
 
-        <div className="rounded-[1.5rem] border border-white/10 bg-slate-900/90 p-6">
+        <div className="rounded-[1.5rem] border border-white/10 bg-slate-950/70 p-6">
           <p className="text-sm font-medium uppercase tracking-[0.3em] text-slate-400">Account</p>
           {!isSupabaseConfigured ? (
-            <div className="mt-4 rounded-2xl border border-amber-400/30 bg-amber-400/10 p-4 text-sm text-amber-100">
-              Add `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_ANON_KEY` to `apps/web/.env.local`
-              to enable auth, personalization, and the live dashboard.
+            <div className="mt-4 rounded-2xl border border-amber-400/30 bg-amber-400/10 p-4 text-sm leading-6 text-amber-100">
+              Add `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_ANON_KEY` to `apps/web/.env.local` to enable
+              sign-in and saved regions.
             </div>
           ) : loadingSession ? (
-            <p className="mt-4 text-sm text-slate-300">Checking session...</p>
+            <p className="mt-4 text-sm text-slate-300">Checking your session...</p>
           ) : session ? (
             <div className="mt-4 space-y-4">
               <div className="rounded-2xl border border-emerald-400/20 bg-emerald-400/10 p-4">
                 <p className="text-xs uppercase tracking-[0.25em] text-emerald-200">Signed In</p>
                 <p className="mt-2 text-sm text-white">{session.user.email}</p>
+                <p className="mt-2 text-sm text-emerald-100">
+                  Save regions below to personalize the map and flight list.
+                </p>
               </div>
               <button
                 className="w-full rounded-full border border-white/15 bg-white/5 px-4 py-3 text-sm font-medium text-white transition hover:bg-white/10"
@@ -467,46 +496,52 @@ export function PhaseFourDashboard() {
               </button>
             </div>
           ) : (
-            <form className="mt-4 space-y-4" onSubmit={handleAuthSubmit}>
-              <div className="flex gap-2 rounded-full bg-slate-800 p-1 text-sm">
-                <AuthModeButton active={authMode === 'sign-in'} label="Sign In" onClick={() => setAuthMode('sign-in')} />
-                <AuthModeButton active={authMode === 'sign-up'} label="Sign Up" onClick={() => setAuthMode('sign-up')} />
+            <div className="mt-4 space-y-4">
+              <div className="rounded-2xl border border-sky-300/20 bg-sky-300/10 p-4 text-sm leading-6 text-sky-50">
+                Keep browsing as a guest, or sign in to save regions and get the same view back next time.
               </div>
 
-              <label className="block space-y-2 text-sm text-slate-300">
-                <span>Email</span>
-                <input
-                  className="w-full rounded-2xl border border-white/10 bg-slate-950 px-4 py-3 text-white outline-none transition focus:border-cyan-300"
-                  onChange={(event) => setEmail(event.target.value)}
-                  required
-                  type="email"
-                  value={email}
-                />
-              </label>
+              <form className="space-y-4" onSubmit={handleAuthSubmit}>
+                <div className="flex gap-2 rounded-full bg-slate-800 p-1 text-sm">
+                  <AuthModeButton active={authMode === 'sign-in'} label="Sign In" onClick={() => setAuthMode('sign-in')} />
+                  <AuthModeButton active={authMode === 'sign-up'} label="Create Account" onClick={() => setAuthMode('sign-up')} />
+                </div>
 
-              <label className="block space-y-2 text-sm text-slate-300">
-                <span>Password</span>
-                <input
-                  className="w-full rounded-2xl border border-white/10 bg-slate-950 px-4 py-3 text-white outline-none transition focus:border-cyan-300"
-                  minLength={6}
-                  onChange={(event) => setPassword(event.target.value)}
-                  required
-                  type="password"
-                  value={password}
-                />
-              </label>
+                <label className="block space-y-2 text-sm text-slate-300">
+                  <span>Email</span>
+                  <input
+                    className="w-full rounded-2xl border border-white/10 bg-slate-950 px-4 py-3 text-white outline-none transition focus:border-cyan-300"
+                    onChange={(event) => setEmail(event.target.value)}
+                    required
+                    type="email"
+                    value={email}
+                  />
+                </label>
 
-              <button
-                className="w-full rounded-full bg-cyan-300 px-4 py-3 text-sm font-semibold text-slate-950 transition hover:bg-cyan-200 disabled:cursor-not-allowed disabled:bg-slate-700 disabled:text-slate-300"
-                disabled={submittingAuth}
-                type="submit"
-              >
-                {submittingAuth ? 'Working...' : authMode === 'sign-up' ? 'Create Account' : 'Sign In'}
-              </button>
-            </form>
+                <label className="block space-y-2 text-sm text-slate-300">
+                  <span>Password</span>
+                  <input
+                    className="w-full rounded-2xl border border-white/10 bg-slate-950 px-4 py-3 text-white outline-none transition focus:border-cyan-300"
+                    minLength={6}
+                    onChange={(event) => setPassword(event.target.value)}
+                    required
+                    type="password"
+                    value={password}
+                  />
+                </label>
+
+                <button
+                  className="w-full rounded-full bg-cyan-300 px-4 py-3 text-sm font-semibold text-slate-950 transition hover:bg-cyan-200 disabled:cursor-not-allowed disabled:bg-slate-700 disabled:text-slate-300"
+                  disabled={submittingAuth}
+                  type="submit"
+                >
+                  {submittingAuth ? 'Working...' : authMode === 'sign-up' ? 'Create Account' : 'Sign In'}
+                </button>
+              </form>
+            </div>
           )}
 
-          {authMessage ? <p className="mt-4 text-sm text-slate-300">{authMessage}</p> : null}
+          {authMessage ? <InlineNotice className="mt-4" tone="neutral" text={authMessage} /> : null}
         </div>
       </section>
 
@@ -515,19 +550,17 @@ export function PhaseFourDashboard() {
           <div className="rounded-[1.75rem] border border-white/10 bg-slate-900/80 p-6">
             <div className="flex items-start justify-between gap-4">
               <div>
-                <p className="text-sm font-medium uppercase tracking-[0.25em] text-slate-400">Region Filter</p>
-                <h2 className="mt-3 text-2xl font-semibold text-white">{activeRegionSummary.label}</h2>
+                <p className="text-sm font-medium uppercase tracking-[0.25em] text-slate-400">Saved Regions</p>
+                <h2 className="mt-3 text-2xl font-semibold text-white">{activeRegionSummary.filterMode}</h2>
               </div>
-              <span className="rounded-full border border-cyan-300/25 bg-cyan-300/10 px-3 py-1 text-xs uppercase tracking-[0.25em] text-cyan-200">
-                Phase 4
-              </span>
+              <StatusPill tone="neutral" text={session ? 'Signed-In View' : 'Guest View'} />
             </div>
 
             <p className="mt-4 text-sm leading-7 text-slate-300">{activeRegionSummary.description}</p>
 
             <div className="mt-5 grid gap-3 sm:grid-cols-2">
-              <MetricCard label="Filter Mode" value={activeRegionSummary.filterMode} />
-              <MetricCard label="Saved Regions" value={session ? String(savedRegionKeys.length) : 'Public'} />
+              <MetricCard label="Saved Regions" value={session ? String(savedRegionKeys.length) : 'None'} />
+              <MetricCard label="Browsing" value={session && savedRegionKeys.length > 0 ? 'Personalized' : 'Public live feed'} />
             </div>
 
             {session ? (
@@ -541,7 +574,7 @@ export function PhaseFourDashboard() {
                   >
                     {availableRegions.map((option: RegionOption) => (
                       <option key={option.key} value={option.key}>
-                        {option.label}
+                        {option.label} - {option.description}
                       </option>
                     ))}
                   </select>
@@ -550,27 +583,26 @@ export function PhaseFourDashboard() {
                     disabled={availableRegions.length === 0 || submittingRegion}
                     type="submit"
                   >
-                    {availableRegions.length === 0 ? 'All Added' : submittingRegion ? 'Saving...' : 'Add Region'}
+                    {availableRegions.length === 0 ? 'All Saved' : submittingRegion ? 'Saving...' : 'Save Region'}
                   </button>
                 </form>
 
-                <div className="mt-6 space-y-3">
+                <div className="mt-6 flex flex-wrap gap-3">
                   {regions.length === 0 ? (
-                    <div className="rounded-2xl border border-dashed border-white/10 p-5 text-sm text-slate-300">
-                      No saved regions yet. Add one to switch from the public feed to a personalized live view.
+                    <div className="w-full rounded-2xl border border-dashed border-white/10 p-5 text-sm text-slate-300">
+                      You are still seeing the public live feed. Save a region to make this view personal.
                     </div>
                   ) : (
                     regions.map((region) => (
                       <div
-                        className="flex items-center justify-between gap-4 rounded-2xl border border-white/10 bg-slate-950/80 px-4 py-4"
+                        className="flex items-center gap-3 rounded-full border border-white/10 bg-slate-950/80 px-4 py-3"
                         key={region.id}
                       >
                         <div>
-                          <p className="font-medium text-white">{REGION_LABELS[region.region_key] ?? region.region_key}</p>
-                          <p className="text-sm text-slate-400">{region.region_key}</p>
+                          <p className="text-sm font-medium text-white">{REGION_LABELS[region.region_key] ?? region.region_key}</p>
                         </div>
                         <button
-                          className="rounded-full border border-rose-300/25 bg-rose-400/10 px-4 py-2 text-sm text-rose-100 transition hover:bg-rose-400/20"
+                          className="rounded-full border border-rose-300/25 bg-rose-400/10 px-3 py-1 text-xs uppercase tracking-[0.2em] text-rose-100 transition hover:bg-rose-400/20"
                           onClick={() => void handleRemoveRegion(region.id)}
                           type="button"
                         >
@@ -583,36 +615,39 @@ export function PhaseFourDashboard() {
               </>
             ) : (
               <div className="mt-6 rounded-2xl border border-dashed border-white/10 p-5 text-sm text-slate-300">
-                Sign in to save a personalized region filter. Until then, the dashboard stays on the public global feed.
+                Sign in to save regions and keep a personalized flight view across sessions. The public live feed
+                stays available either way.
               </div>
             )}
 
-            {regionMessage ? <p className="mt-4 text-sm text-slate-300">{regionMessage}</p> : null}
+            {regionMessage ? <InlineNotice className="mt-4" tone="neutral" text={regionMessage} /> : null}
           </div>
 
-          <div className="rounded-[1.75rem] border border-white/10 bg-[radial-gradient(circle_at_top,_rgba(34,211,238,0.14),_transparent_45%),linear-gradient(180deg,_rgba(15,23,42,0.9),_rgba(2,6,23,0.95))] p-6">
-            <p className="text-sm font-medium uppercase tracking-[0.25em] text-slate-400">Worker Status</p>
-            <h2 className="mt-3 text-2xl font-semibold text-white">Background ingestion heartbeat</h2>
+          <div className="rounded-[1.75rem] border border-white/10 bg-[radial-gradient(circle_at_top,_rgba(56,189,248,0.12),_transparent_42%),linear-gradient(180deg,_rgba(15,23,42,0.92),_rgba(2,6,23,0.98))] p-6">
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <p className="text-sm font-medium uppercase tracking-[0.25em] text-slate-400">Selected Flight</p>
+                <h2 className="mt-3 text-2xl font-semibold text-white">
+                  {activeFlight ? activeFlight.callsign ?? activeFlight.icao24.toUpperCase() : 'No flight selected'}
+                </h2>
+              </div>
+              <StatusPill tone={activeFlight?.on_ground ? 'neutral' : 'success'} text={activeFlight ? (activeFlight.on_ground ? 'On Ground' : 'In Flight') : 'Waiting'} />
+            </div>
 
-            {workerStatus ? (
-              <div className="mt-5 space-y-4">
-                <StatusBadge status={workerStatus.status} />
-                <StatusLine label="Worker freshness" value={formatFreshnessLabel(heartbeatState)} />
-                <StatusLine label="Last heartbeat" value={formatDateTime(workerStatus.last_heartbeat_at)} />
-                <StatusLine label="Heartbeat age" value={formatAge(workerStatus.last_heartbeat_at)} />
-                <StatusLine
-                  label="Latest observation"
-                  value={latestObservationAt ? `${formatDateTime(latestObservationAt)} (${formatFreshnessLabel(dataState)})` : 'No observations yet'}
-                />
-                <StatusLine label="Cycles completed" value={String(workerStatus.details.cycles_completed ?? 0)} />
-                <StatusLine label="Last fetched states" value={String(workerStatus.details.fetched_states ?? 0)} />
-                <StatusLine label="Last upserted flights" value={String(workerStatus.details.upserted_flights ?? 0)} />
-                <StatusLine label="Poll interval" value={`${workerStatus.details.poll_interval_ms ?? 'unknown'} ms`} />
-                <StatusLine label="Last error" value={(workerStatus.details.last_error as string | null) ?? 'None'} />
+            {activeFlight ? (
+              <div className="mt-5 grid gap-3 sm:grid-cols-2">
+                <StatusLine label="Origin" value={activeFlight.origin_country ?? 'Unknown'} />
+                <StatusLine label="Region" value={REGION_LABELS[activeFlight.region_key] ?? activeFlight.region_key} />
+                <StatusLine label="Latitude" value={formatCoordinate(activeFlight.latitude)} />
+                <StatusLine label="Longitude" value={formatCoordinate(activeFlight.longitude)} />
+                <StatusLine label="Altitude" value={formatNumber(activeFlight.baro_altitude, 'm')} />
+                <StatusLine label="Speed" value={formatNumber(activeFlight.velocity, 'm/s')} />
+                <StatusLine label="Track" value={formatTrack(activeFlight.true_track)} />
+                <StatusLine label="Last Seen" value={formatRelativeTime(activeFlight.observed_at)} />
               </div>
             ) : (
               <div className="mt-5 rounded-2xl border border-dashed border-white/10 p-5 text-sm text-slate-300">
-                No heartbeat row yet. Start the worker locally and check that it can write to `worker_status`.
+                Choose a flight from the list or map to inspect it here.
               </div>
             )}
           </div>
@@ -623,102 +658,84 @@ export function PhaseFourDashboard() {
             <div className="flex flex-col gap-4 border-b border-white/10 pb-5 md:flex-row md:items-end md:justify-between">
               <div>
                 <p className="text-sm font-medium uppercase tracking-[0.25em] text-slate-400">Live Map</p>
-                <h2 className="mt-3 text-3xl font-semibold text-white">Realtime telemetry dashboard</h2>
+                <h2 className="mt-3 text-3xl font-semibold text-white">Current flight positions</h2>
               </div>
 
               <div className="grid gap-3 text-sm text-slate-300 sm:grid-cols-3">
                 <MetricCard label="Visible Flights" value={String(flights.length)} />
                 <MetricCard label="Mapped Flights" value={String(mapEligibleFlights.length)} />
-                <MetricCard label="Realtime" value={channelHealth === 'degraded' ? 'Degraded' : 'Connected'} />
+                <MetricCard label="Live Updates" value={channelHealth === 'degraded' ? 'Limited' : 'Connected'} />
               </div>
             </div>
 
-            {realtimeMessage ? (
-              <div className="mt-6 rounded-2xl border border-amber-400/20 bg-amber-400/10 p-4 text-sm text-amber-100">
-                {realtimeMessage}
-              </div>
-            ) : null}
+            {realtimeMessage ? <InlineNotice className="mt-6" tone="warning" text={realtimeMessage} /> : null}
 
-            {session && savedRegionKeys.length === 0 ? (
-              <div className="mt-6 rounded-2xl border border-dashed border-white/10 p-5 text-sm text-slate-300">
-                Save at least one region to enable your personalized live map and list. Add `Global` if you want the full shared stream while signed in.
-              </div>
-            ) : (
-              <div className="mt-6">
-                <FlightMap
-                  activeFlightId={activeFlightId}
-                  emptyMessage="No flights with valid coordinates matched the current filter yet."
-                  errorMessage={flightMessage}
-                  flights={flights}
-                  loading={loadingFlights}
-                  onSelectFlight={setActiveFlightId}
-                />
-              </div>
-            )}
+            <div className="mt-6">
+              <FlightMap
+                activeFlightId={activeFlightId}
+                emptyMessage="No flights with usable map coordinates are available for this view yet."
+                errorMessage={flightMessage}
+                flights={flights}
+                loading={loadingFlights}
+                onSelectFlight={setActiveFlightId}
+              />
+            </div>
           </div>
 
           <div className="rounded-[1.75rem] border border-white/10 bg-slate-900/80 p-6">
             <div className="flex flex-col gap-4 border-b border-white/10 pb-5 md:flex-row md:items-end md:justify-between">
               <div>
                 <p className="text-sm font-medium uppercase tracking-[0.25em] text-slate-400">Flight Feed</p>
-                <h2 className="mt-3 text-3xl font-semibold text-white">Map and list stay synchronized</h2>
+                <h2 className="mt-3 text-3xl font-semibold text-white">List and map stay in sync</h2>
               </div>
 
               <div className="grid gap-3 text-sm text-slate-300 sm:grid-cols-3">
-                <MetricCard label="Latest Observation" value={latestObservationAt ? formatRelativeTime(latestObservationAt) : 'No data'} />
-                <MetricCard label="Heartbeat" value={workerStatus ? formatRelativeTime(workerStatus.last_heartbeat_at) : 'Waiting'} />
-                <MetricCard label="Data Freshness" value={formatFreshnessLabel(dataState)} />
+                <MetricCard label="Latest Update" value={latestObservationAt ? formatRelativeTime(latestObservationAt) : 'Waiting'} />
+                <MetricCard label="Flight Data" value={formatFreshnessLabel(dataState)} />
+                <MetricCard label="System" value={systemStatus.shortLabel} />
               </div>
             </div>
 
-            {flightMessage ? (
-              <div className="mt-6 rounded-2xl border border-rose-300/20 bg-rose-400/10 p-4 text-sm text-rose-100">
-                {flightMessage}
-              </div>
-            ) : null}
+            {flightMessage ? <InlineNotice className="mt-6" tone="error" text={flightMessage} /> : null}
 
             {loadingFlights ? (
               <div className="mt-6 rounded-2xl border border-dashed border-white/10 p-5 text-sm text-slate-300">
-                Loading live flights from Supabase...
-              </div>
-            ) : session && savedRegionKeys.length === 0 ? (
-              <div className="mt-6 rounded-2xl border border-dashed border-white/10 p-5 text-sm text-slate-300">
-                Save at least one region to enable your personalized live feed. Add `Global` if you want the full shared stream while signed in.
+                Loading the latest live flights...
               </div>
             ) : flights.length === 0 ? (
               <div className="mt-6 rounded-2xl border border-dashed border-white/10 p-5 text-sm text-slate-300">
-                No flights matched the current filter yet. Wait for the worker to ingest data or broaden the selected region set.
+                No live flights match this view right now. Try again in a moment or broaden your saved regions.
               </div>
             ) : (
               <div className="mt-6 overflow-hidden rounded-[1.5rem] border border-white/10">
                 <div className="hidden grid-cols-[1.1fr_1fr_1fr_0.95fr_0.95fr_0.75fr_1fr_1fr] gap-3 bg-slate-950/80 px-4 py-3 text-xs uppercase tracking-[0.2em] text-slate-400 lg:grid">
-                  <span>Callsign</span>
+                  <span>Flight</span>
                   <span>Origin</span>
                   <span>Latitude</span>
                   <span>Longitude</span>
                   <span>Altitude</span>
-                  <span>Ground</span>
+                  <span>Status</span>
                   <span>Region</span>
-                  <span>Observed</span>
+                  <span>Updated</span>
                 </div>
 
                 <div className="divide-y divide-white/10">
                   {flights.map((flight) => (
                     <article
-                      className={`grid gap-3 px-4 py-4 lg:grid-cols-[1.1fr_1fr_1fr_0.95fr_0.95fr_0.75fr_1fr_1fr] lg:items-center ${
-                        flight.id === activeFlightId ? 'bg-cyan-300/10' : 'bg-slate-950/55'
+                      className={`grid gap-3 px-4 py-4 transition lg:grid-cols-[1.1fr_1fr_1fr_0.95fr_0.95fr_0.75fr_1fr_1fr] lg:items-center ${
+                        flight.id === activeFlightId ? 'bg-cyan-300/10' : 'bg-slate-950/55 hover:bg-white/5'
                       }`}
                       key={flight.id}
                     >
                       <button className="contents text-left" onClick={() => setActiveFlightId(flight.id)} type="button">
-                        <FlightCell label="Callsign" value={flight.callsign ?? flight.icao24.toUpperCase()} />
+                        <FlightCell label="Flight" value={flight.callsign ?? flight.icao24.toUpperCase()} />
                         <FlightCell label="Origin" value={flight.origin_country ?? 'Unknown'} />
                         <FlightCell label="Latitude" value={formatCoordinate(flight.latitude)} />
                         <FlightCell label="Longitude" value={formatCoordinate(flight.longitude)} />
                         <FlightCell label="Altitude" value={formatNumber(flight.baro_altitude, 'm')} />
-                        <FlightCell label="Ground" value={flight.on_ground ? 'Yes' : 'No'} />
+                        <FlightCell label="Status" value={flight.on_ground ? 'On ground' : 'In flight'} />
                         <FlightCell label="Region" value={REGION_LABELS[flight.region_key] ?? flight.region_key} />
-                        <FlightCell label="Observed" value={formatRelativeTime(flight.observed_at)} />
+                        <FlightCell label="Updated" value={formatRelativeTime(flight.observed_at)} />
                       </button>
                     </article>
                   ))}
@@ -781,19 +798,6 @@ function FlightCell({ label, value }: { label: string; value: string }) {
   );
 }
 
-function StatusBadge({ status }: { status: string }) {
-  const tone =
-    status === 'healthy'
-      ? 'border-emerald-400/20 bg-emerald-400/10 text-emerald-100'
-      : 'border-rose-300/20 bg-rose-400/10 text-rose-100';
-
-  return (
-    <span className={`inline-flex rounded-full border px-3 py-1 text-xs uppercase tracking-[0.25em] ${tone}`}>
-      {status}
-    </span>
-  );
-}
-
 function StatusLine({ label, value }: { label: string; value: string }) {
   return (
     <div className="flex items-center justify-between gap-4 rounded-2xl border border-white/10 bg-slate-950/50 px-4 py-3 text-sm">
@@ -803,12 +807,48 @@ function StatusLine({ label, value }: { label: string; value: string }) {
   );
 }
 
+function InlineNotice({
+  className,
+  text,
+  tone
+}: {
+  className?: string;
+  text: string;
+  tone: 'neutral' | 'warning' | 'error';
+}) {
+  const styles =
+    tone === 'warning'
+      ? 'border-amber-400/20 bg-amber-400/10 text-amber-100'
+      : tone === 'error'
+        ? 'border-rose-300/20 bg-rose-400/10 text-rose-100'
+        : 'border-white/10 bg-white/5 text-slate-200';
+
+  return <div className={`${className ?? ''} rounded-2xl border p-4 text-sm leading-6 ${styles}`}>{text}</div>;
+}
+
+function StatusPill({ text, tone }: { text: string; tone: 'neutral' | 'success' | 'warning' | 'error' }) {
+  const styles =
+    tone === 'success'
+      ? 'border-emerald-400/20 bg-emerald-400/10 text-emerald-100'
+      : tone === 'warning'
+        ? 'border-amber-400/20 bg-amber-400/10 text-amber-100'
+        : tone === 'error'
+          ? 'border-rose-300/20 bg-rose-400/10 text-rose-100'
+          : 'border-white/10 bg-white/5 text-slate-200';
+
+  return <span className={`rounded-full border px-3 py-1 text-xs uppercase tracking-[0.25em] ${styles}`}>{text}</span>;
+}
+
 function formatCoordinate(value: number | null) {
   return value === null ? 'Unknown' : value.toFixed(3);
 }
 
 function formatNumber(value: number | null, suffix: string) {
   return value === null ? 'Unknown' : `${Math.round(value).toLocaleString()} ${suffix}`;
+}
+
+function formatTrack(value: number | null) {
+  return value === null ? 'Unknown' : `${Math.round(value)}°`;
 }
 
 function formatRelativeTime(value: string) {
@@ -826,15 +866,7 @@ function formatRelativeTime(value: string) {
   return `${Math.round(diffSeconds / 3600)}h ago`;
 }
 
-function formatDateTime(value: string) {
-  return new Date(value).toLocaleString();
-}
-
-function formatAge(value: string) {
-  return formatRelativeTime(value);
-}
-
-function getFreshnessState(ageMs: number | null, staleAfterMs: number) {
+function getFreshnessState(ageMs: number | null, staleAfterMs: number): FreshnessState {
   if (ageMs === null || Number.isNaN(ageMs)) {
     return 'unknown';
   }
@@ -842,16 +874,45 @@ function getFreshnessState(ageMs: number | null, staleAfterMs: number) {
   return ageMs > staleAfterMs ? 'stale' : 'fresh';
 }
 
-function formatFreshnessLabel(state: 'fresh' | 'stale' | 'unknown') {
+function formatFreshnessLabel(state: FreshnessState) {
   if (state === 'fresh') {
     return 'Fresh';
   }
 
   if (state === 'stale') {
-    return 'Stale';
+    return 'Delayed';
   }
 
   return 'Unknown';
+}
+
+function getSystemStatus(
+  workerStatus: WorkerStatusRow | null,
+  heartbeatState: FreshnessState,
+  dataState: FreshnessState,
+  channelHealth: ChannelHealth
+) {
+  if (!workerStatus) {
+    return {
+      label: 'Waiting For Live Data',
+      shortLabel: 'Waiting',
+      tone: 'warning' as const
+    };
+  }
+
+  if (channelHealth === 'degraded' || heartbeatState === 'stale' || dataState === 'stale' || workerStatus.status !== 'healthy') {
+    return {
+      label: 'Live Feed Limited',
+      shortLabel: 'Limited',
+      tone: 'warning' as const
+    };
+  }
+
+  return {
+    label: 'Live Feed Healthy',
+    shortLabel: 'Healthy',
+    tone: 'success' as const
+  };
 }
 
 function hasValidCoordinates(flight: FlightRow) {
@@ -865,4 +926,30 @@ function hasValidCoordinates(flight: FlightRow) {
     flight.longitude >= -180 &&
     flight.longitude <= 180
   );
+}
+
+function toUserMessage(sourceMessage: string, fallback: string) {
+  const message = sourceMessage.toLowerCase();
+
+  if (message.includes('invalid login credentials')) {
+    return 'That email and password combination was not recognized.';
+  }
+
+  if (message.includes('email not confirmed')) {
+    return 'Your account needs email confirmation before you can sign in.';
+  }
+
+  if (message.includes('duplicate key value') || message.includes('duplicate')) {
+    return 'That item is already saved.';
+  }
+
+  if (message.includes('network') || message.includes('fetch')) {
+    return 'A network issue interrupted the request. Please try again.';
+  }
+
+  if (message.includes('row-level security')) {
+    return 'This action is not available for your current account.';
+  }
+
+  return fallback;
 }

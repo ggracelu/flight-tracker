@@ -30,10 +30,9 @@ Users can:
 
 - view live flights,
 - view the same live flights on a realtime map,
-- filter flights by region,
 - save preferred regions,
 - watch flight data update in realtime,
-- compare the synced list and map views in one dashboard.
+- move between a synced map, list, and selected-flight detail view.
 
 Primary data source:
 - **OpenSky Network** for aircraft state vectors
@@ -59,12 +58,14 @@ Expected monorepo structure:
 │   └── worker/     # Node/TypeScript worker -> Railway
 ```
 
-## Current Phase 4 Expectations
+## Current Product Expectations
 
 - keep the ingestion path exactly as `OpenSky -> worker -> Supabase -> Next.js`
 - do not move OpenSky fetching into the browser
 - keep `public.flights` and `public.worker_status` as the operational data source for the UI
-- logged-out users see the public global feed
-- logged-in users see results filtered by `user_regions`
-- map and list must stay aligned to the same filtered dataset
+- logged-out users should immediately see a useful public global feed
+- logged-in users should keep a usable live view even before saving regions
+- saved regions should personalize the existing map and list without changing the backend model
+- map, list, and selected-flight details must stay aligned to the same filtered dataset
+- operational status should be available only as lightweight freshness/health messaging, not raw internal metrics
 - deployment docs must cover Railway and Vercel setup clearly

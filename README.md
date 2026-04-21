@@ -1,20 +1,18 @@
 # Flight Tracker
 
-Flight Tracker is a phased monorepo for MPCS 51238 Assignment 4. Phase 4 preserves the required architecture and adds a live map on top of the existing realtime flight feed.
+Flight Tracker is a live flight browsing app built on the required multi-service course architecture. It keeps the existing worker-to-database-to-web pipeline intact while presenting the data as a polished user-facing product.
 
 `OpenSky Network -> Background Worker (Railway) -> Supabase (database + Realtime + Auth) -> Next.js frontend (Vercel)`
 
 The browser does not fetch OpenSky directly. `apps/worker` is still the only service that polls upstream data.
 
-## Phase 4 Scope
+## Product Summary
 
-- preserve the Phase 3 worker ingestion loop
-- preserve Supabase as the shared source of truth
-- render live flights on a map in `apps/web`
-- keep the map and flight list synchronized through Supabase Realtime
-- improve region filtering behavior for public and signed-in users
-- document Railway and Vercel deployment steps
-- add a concise submission-readiness checklist
+- browse a public worldwide live flight feed without signing in
+- explore the same flights on a synced map and flight list
+- sign in to save preferred regions for a personalized view
+- keep live updates flowing through Supabase Realtime
+- deploy the worker on Railway and the frontend on Vercel without changing the architecture
 
 ## Repo Structure
 
@@ -23,14 +21,13 @@ The browser does not fetch OpenSky directly. `apps/worker` is still the only ser
 - `supabase/migrations`: schema and Phase 2/3 database changes
 - `docs/`: setup, verification, deployment, and submission notes
 
-## Phase 4 Deliverables
+## Current UX
 
-- live Leaflet map backed by the existing `public.flights` feed
-- synced map and list views using the same realtime data
-- worker heartbeat, freshness, and stale-data messaging in the dashboard
-- safer empty, loading, error, and missing-env states
-- Railway deployment guidance for the worker
-- Vercel deployment guidance for the frontend
+- immediate signed-out browsing on the public global feed
+- saved regions that personalize the map and flight list for signed-in users
+- a selected-flight details panel tied to both the map and the list
+- friendlier empty, loading, degraded-realtime, and auth messages
+- clean presentation with operational details kept in the background
 
 ## Local Development
 
@@ -86,7 +83,7 @@ npm run lint:web
 
 - Supabase setup: [docs/supabase-phase2.md](/Users/gracelu/Desktop/flight-tracker/docs/supabase-phase2.md)
 - Phase 3 local verification: [docs/phase3-local-verification.md](/Users/gracelu/Desktop/flight-tracker/docs/phase3-local-verification.md)
-- Phase 4 deployment: [docs/phase4-deployment.md](/Users/gracelu/Desktop/flight-tracker/docs/phase4-deployment.md)
+- Deployment guide: [docs/phase4-deployment.md](/Users/gracelu/Desktop/flight-tracker/docs/phase4-deployment.md)
 - Submission checklist: [docs/submission-checklist.md](/Users/gracelu/Desktop/flight-tracker/docs/submission-checklist.md)
 
 ## Deployment Summary
