@@ -4,8 +4,11 @@
 
 :root {
   color-scheme: light;
+  background:
+    radial-gradient(circle at top, rgba(34, 211, 238, 0.12), transparent 30%),
+    linear-gradient(180deg, #020617 0%, #0f172a 58%, #111827 100%);
 }
 
 body {
-  @apply min-h-screen bg-slate-950 text-slate-100 antialiased;
+  @apply min-h-screen text-slate-100 antialiased;
 }
