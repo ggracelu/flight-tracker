@@ -13,7 +13,7 @@ let lastError: string | null = null;
 
 console.log(
   `[worker] starting ${config.workerName} with poll interval ${config.pollIntervalMs}ms${
-    config.openskyUsername ? ' (authenticated OpenSky requests enabled)' : ' (unauthenticated OpenSky requests)'
+    config.openskyClientId ? ' (OAuth2 OpenSky requests enabled)' : ' (unauthenticated OpenSky requests)'
   }`
 );
 

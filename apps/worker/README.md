@@ -20,10 +20,10 @@
 
 ## Optional Environment Variables
 
-- `OPENSKY_USERNAME`
-- `OPENSKY_PASSWORD`
+- `OPENSKY_CLIENT_ID`
+- `OPENSKY_CLIENT_SECRET`
 
-OpenSky credentials are optional for local development, but unauthenticated requests are more likely to hit rate limits.
+OpenSky OAuth2 client credentials are optional for local development, but unauthenticated requests are more likely to hit rate limits. When provided, the worker fetches and caches a bearer token, then uses that token for `https://opensky-network.org/api/states/all`.
 
 ## Local Run
 
@@ -84,8 +84,8 @@ If coordinates are missing or outside the simple bounding boxes, the fallback is
 
 ### Optional Railway Env Vars
 
-- `OPENSKY_USERNAME`
-- `OPENSKY_PASSWORD`
+- `OPENSKY_CLIENT_ID`
+- `OPENSKY_CLIENT_SECRET`
 
 ### Railway Notes
 

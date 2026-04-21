@@ -6,8 +6,8 @@ const DEFAULT_POLL_INTERVAL_MS = 30_000;
 export function getConfig(): WorkerConfig {
   const supabaseUrl = process.env.SUPABASE_URL?.trim() ?? '';
   const supabaseServiceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY?.trim() ?? '';
-  const openskyUsername = readOptionalEnv('OPENSKY_USERNAME');
-  const openskyPassword = readOptionalEnv('OPENSKY_PASSWORD');
+  const openskyClientId = readOptionalEnv('OPENSKY_CLIENT_ID');
+  const openskyClientSecret = readOptionalEnv('OPENSKY_CLIENT_SECRET');
   const pollIntervalMs = parsePollInterval(process.env.POLL_INTERVAL_MS);
 
   if (!supabaseUrl) {
@@ -21,11 +21,12 @@ export function getConfig(): WorkerConfig {
   return {
     supabaseUrl,
     supabaseServiceRoleKey,
-    openskyUsername,
-    openskyPassword,
+    openskyClientId,
+    openskyClientSecret,
     pollIntervalMs,
     workerName: 'opensky-worker',
-    openskyBaseUrl: 'https://opensky-network.org/api/states/all'
+    openskyBaseUrl: 'https://opensky-network.org/api/states/all',
+    openskyTokenUrl: 'https://auth.opensky-network.org/auth/realms/opensky-network/protocol/openid-connect/token'
   };
 }
 
